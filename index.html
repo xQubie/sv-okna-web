@@ -9,13 +9,16 @@
             --glass: rgba(45, 40, 35, 0.85);
             --stroke: rgba(255, 255, 255, 0.12);
             --accent: #bb86fc;
+            --green: #4CAF50;
+            --red: #F44336;
         }
 
         body {
-            background: #000 url('https://sv-okna.ru/images/background_placeholder.jpg') no-repeat center center fixed;
+            /* Используем твой файл bg.jpg из репозитория */
+            background: #000 url('bg.jpg') no-repeat center center fixed;
             background-size: cover;
             color: #fff;
-            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             margin: 0; padding: 16px;
             padding-bottom: env(safe-area-inset-bottom);
         }
@@ -57,8 +60,8 @@
             transform: rotate(45deg); transition: 0.3s; margin-right: 4px;
         }
 
-        /* Если категория не раскрывается (Условия доставки) */
-        .no-arrow .arrow { display: none; }
+        /* Убираем стрелку для статичных разделов */
+        .no-arrow .arrow { visibility: hidden; }
 
         .category-container.active .arrow { transform: rotate(-135deg); }
 
@@ -70,10 +73,10 @@
 
         .category-container.active .category-content { display: block; }
 
-        /* Позиции: Сетка как на скриншоте */
+        /* Позиции: Строгая сетка для выравнивания цены */
         .pos-item {
             display: grid;
-            grid-template-columns: 1fr 100px 30px 60px; /* Фиксированные колонки для выравнивания */
+            grid-template-columns: 1fr 100px 40px 60px;
             align-items: center;
             padding: 14px 8px;
             border-bottom: 1px solid rgba(255,255,255,0.06);
@@ -81,29 +84,34 @@
 
         .pos-item:last-child { border-bottom: none; }
 
-        .pos-name { font-size: 15px; opacity: 0.9; }
-        .pos-price { font-weight: 600; text-align: right; white-space: nowrap; }
+        .pos-name { font-size: 15px; opacity: 0.95; }
+        .pos-price { font-weight: 600; text-align: right; font-size: 15px; }
         
-        .status-icon { text-align: center; font-size: 18px; }
-        .in-stock { color: #4CAF50; }
-        .out-of-stock { color: #F44336; }
+        /* Цвета галочки и крестика */
+        .status-icon { text-align: center; font-size: 18px; font-weight: bold; }
+        .in-stock { color: var(--green); }
+        .out-of-stock { color: var(--red); }
 
-        .pos-links { display: flex; gap: 8px; justify-content: flex-end; min-width: 60px; }
+        .pos-links { display: flex; gap: 10px; justify-content: flex-end; }
         .link-icon { width: 22px; height: 22px; border-radius: 4px; }
 
-        /* Модалка */
+        /* Модальное окно (Диалог) */
         .modal {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.75); z-index: 1000; align-items: center; justify-content: center;
+            background: rgba(0,0,0,0.8); z-index: 1000; align-items: center; justify-content: center;
         }
 
         .modal-content {
             background: #2c2c2e; width: 82%; border-radius: 14px; padding: 24px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
         }
 
         .modal-title { font-size: 19px; font-weight: 600; margin-bottom: 12px; }
         .modal-body { font-size: 15.5px; line-height: 1.5; opacity: 0.85; white-space: pre-wrap; }
-        .modal-btn { color: var(--accent); font-weight: bold; text-align: right; margin-top: 24px; cursor: pointer; text-transform: uppercase; }
+        .modal-btn { 
+            color: var(--accent); font-weight: bold; text-align: right; 
+            margin-top: 24px; cursor: pointer; text-transform: uppercase;
+        }
     </style>
 </head>
 <body>
@@ -121,18 +129,26 @@
     <script>
         const tg = window.Telegram.WebApp;
         tg.ready(); tg.expand();
+        tg.setHeaderColor('#000000');
 
         const binUrl = "https://api.jsonbin.io/v3/b/69a9530ed0ea881f40f12d78";
         const masterKey = "$2a$10$5YbFE8JVfomxRwl2x1XOzOyJXmUkVRi.ssHGBEvHkVGlSPyyBQcpC";
 
-        const categories = ["Лиственница 78 [-5%]", "Липа 60 [-15%]", "ОСВ Для Дачи [-10%]", "Дуб 78", "Аксессуары", "Двери ПВХ", "Условия доставки"];
+        const categories = [
+            "Лиственница 78 [-5%]", "Липа 60 [-15%]", "ОСВ Для Дачи [-10%]", 
+            "Дуб 78", "Аксессуары", "Двери ПВХ", "Условия доставки"
+        ];
 
         async function loadData() {
             try {
-                const response = await fetch(binUrl, { headers: { "X-Master-Key": masterKey, "X-Bin-Meta": "false" } });
+                const response = await fetch(binUrl, { 
+                    headers: { "X-Master-Key": masterKey, "X-Bin-Meta": "false" } 
+                });
                 const data = await response.json();
                 render(data);
-            } catch (e) { document.getElementById('app-content').innerText = "Ошибка загрузки"; }
+            } catch (e) {
+                document.getElementById('app-content').innerText = "Ошибка загрузки данных";
+            }
         }
 
         function render(data) {
@@ -149,7 +165,7 @@
                 div.innerHTML = `
                     <div class="category-header" onclick="${isStatic ? '' : 'toggleCat(this)'}">
                         <div class="category-title">
-                            <div class="info-icon" onclick="showInfo(event, '${cat}', \`${infos[cat] || '...'}\`)">i</div>
+                            <div class="info-icon" onclick="showInfo(event, '${cat}', \`${infos[cat] || 'Описание отсутствует'}\`)">i</div>
                             ${cat}
                         </div>
                         <div class="arrow"></div>
@@ -164,8 +180,8 @@
                                     ${pos.quantity > 0 ? '✔' : '✖'}
                                 </span>
                                 <div class="pos-links">
-                                    ${pos.avito ? `<a href="${pos.avito}"><img src="https://static.avito.ru/s/common/components/monorepo/visual_rubricator/models/desktop/avito_logo.png" class="link-icon"></a>` : ''}
-                                    ${pos.ozon ? `<a href="${pos.ozon}"><img src="https://cdn1.ozone.ru/s3/cms/92/t96/favicon.ico" class="link-icon"></a>` : ''}
+                                    ${pos.avito ? `<a href="${pos.avito}"><img src="avito.png" class="link-icon"></a>` : ''}
+                                    ${pos.ozon ? `<a href="${pos.ozon}"><img src="ozon.png" class="link-icon"></a>` : ''}
                                 </div>
                             </div>
                         `).join('')}
@@ -185,6 +201,7 @@
             document.getElementById('modalTitle').innerText = title;
             document.getElementById('modalBody').innerText = text;
             document.getElementById('infoModal').style.display = 'flex';
+            if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
         }
 
         function closeModal() {
