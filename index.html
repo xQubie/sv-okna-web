@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        :root {
+            --glass-bg: rgba(255, 255, 255, 0.1);
+            --glass-stroke: rgba(255, 255, 255, 0.2);
+            --text-main: #ffffff;
+        }
+        body {
+            background: #121212;
+            color: var(--text-main);
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            margin: 0; padding: 16px;
+        }
+        .card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            border: 1px solid var(--glass-stroke);
+            border-radius: 16px;
+            margin-bottom: 16px;
+            overflow: hidden;
+        }
+        .card-header {
+            padding: 16px;
+            font-weight: bold;
+            border-bottom: 1px solid var(--glass-stroke);
+            background: rgba(255,255,255,0.05);
+        }
+        .position-item {
+            padding: 12px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        .price { font-weight: 600; }
+        .status-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-left: 8px; }
+        .in-stock { background: #4CAF50; box-shadow: 0 0 8px #4CAF50; }
+        .out-of-stock { background: #F44336; }
+        .category-info { padding: 8px 16px; font-size: 0.85em; color: rgba(255,255,255,0.6); }
+    </style>
+</head>
+<body>
+    <div id="app-content">Загрузка прайса...</div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.ready();
+        tg.expand();
+
+        const binUrl = "https://api.jsonbin.io/v3/b/69a9530ed0ea881f40f12d78";
+        const masterKey = "$2a$10$5YbFE8JVfomxRwl2x1XOzOyJXmUkVRi.ssHGBEvHkVGlSPyyBQcpC";
+
+        const categories = [
+            "Лиственница 78 [-5%]", "Липа 60 [-15%]", "ОСВ Для Дачи [-10%]",
+            "Дуб 78", "Аксессуары", "Двери ПВХ", "Условия доставки"
+        ];
+
+        async function loadData() {
+            try {
+                const response = await fetch(binUrl, {
+                    headers: { "X-Master-Key": masterKey, "X-Bin-Meta": "false" }
+                });
+                const data = await response.json();
+                render(data);
+            } catch (e) {
+                document.getElementById('app-content').innerText = "Ошибка загрузки";
+            }
+        }
+
+        function render(data) {
+            const container = document.getElementById('app-content');
+            container.innerHTML = '';
+            const infos = data._category_infos || {};
+
+            categories.forEach(cat => {
+                const items = data[cat] || [];
+                if (items.length === 0 && !infos[cat]) return;
+
+                const card = document.createElement('div');
+                card.className = 'card';
+                let html = `<div class="card-header">${cat}</div>`;
+                if (infos[cat]) html += `<div class="category-info">${infos[cat]}</div>`;
+
+                items.forEach(pos => {
+                    const statusClass = pos.quantity > 0 ? 'in-stock' : 'out-of-stock';
+                    html += `
+                        <div class="position-item">
+                            <span>${pos.name}</span>
+                            <div>
+                                <span class="price">${pos.price} ₽</span>
+                                <span class="status-dot ${statusClass}"></span>
+                            </div>
+                        </div>`;
+                });
+                card.innerHTML = html;
+                container.appendChild(card);
+            });
+        }
+        loadData();
+    </script>
+</body>
+</html>
