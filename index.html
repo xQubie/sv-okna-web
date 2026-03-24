@@ -8,14 +8,14 @@
         :root {
             --glass: rgba(45, 40, 35, 0.85);
             --stroke: rgba(255, 255, 255, 0.12);
-            --accent: #bb86fc; /* Фиолетовый акцент для кнопок диалога */
+            --accent: #bb86fc;
         }
 
         body {
             background: #000 url('https://sv-okna.ru/images/background_placeholder.jpg') no-repeat center center fixed;
             background-size: cover;
             color: #fff;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
             margin: 0; padding: 16px;
             padding-bottom: env(safe-area-inset-bottom);
         }
@@ -26,14 +26,12 @@
             z-index: -1;
         }
 
-        /* Карточка категории (Аккордеон) */
         .category-container {
             background: var(--glass);
             border: 1px solid var(--stroke);
             border-radius: 28px;
             margin-bottom: 12px;
             overflow: hidden;
-            transition: background 0.3s;
         }
 
         .category-header {
@@ -50,7 +48,7 @@
         .info-icon {
             width: 24px; height: 24px; background: rgba(255,255,255,0.12);
             border-radius: 50%; display: flex; align-items: center; justify-content: center;
-            font-size: 14px; font-style: italic; font-weight: bold; color: rgba(255,255,255,0.9);
+            font-size: 14px; font-style: italic; font-weight: bold;
         }
 
         .arrow {
@@ -58,6 +56,9 @@
             border-bottom: 2px solid rgba(255,255,255,0.7);
             transform: rotate(45deg); transition: 0.3s; margin-right: 4px;
         }
+
+        /* Если категория не раскрывается (Условия доставки) */
+        .no-arrow .arrow { display: none; }
 
         .category-container.active .arrow { transform: rotate(-135deg); }
 
@@ -69,22 +70,28 @@
 
         .category-container.active .category-content { display: block; }
 
-        /* Позиции товаров */
+        /* Позиции: Сетка как на скриншоте */
         .pos-item {
-            display: flex; align-items: center; justify-content: space-between;
-            padding: 14px 8px; border-bottom: 1px solid rgba(255,255,255,0.06);
+            display: grid;
+            grid-template-columns: 1fr 100px 30px 60px; /* Фиксированные колонки для выравнивания */
+            align-items: center;
+            padding: 14px 8px;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
         }
 
         .pos-item:last-child { border-bottom: none; }
 
-        .pos-name { flex: 1; font-size: 15.5px; opacity: 0.95; }
-        .pos-price { font-weight: 600; margin: 0 12px; font-size: 15px; }
+        .pos-name { font-size: 15px; opacity: 0.9; }
+        .pos-price { font-weight: 600; text-align: right; white-space: nowrap; }
         
-        .pos-links { display: flex; gap: 10px; align-items: center; }
-        .link-icon { width: 22px; height: 22px; border-radius: 5px; opacity: 0.9; }
-        .check-icon { color: #4CAF50; font-size: 18px; margin-right: 4px; }
+        .status-icon { text-align: center; font-size: 18px; }
+        .in-stock { color: #4CAF50; }
+        .out-of-stock { color: #F44336; }
 
-        /* Модальное окно (Info Dialog) */
+        .pos-links { display: flex; gap: 8px; justify-content: flex-end; min-width: 60px; }
+        .link-icon { width: 22px; height: 22px; border-radius: 4px; }
+
+        /* Модалка */
         .modal {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.75); z-index: 1000; align-items: center; justify-content: center;
@@ -92,15 +99,11 @@
 
         .modal-content {
             background: #2c2c2e; width: 82%; border-radius: 14px; padding: 24px;
-            box-shadow: 0 15px 40px rgba(0,0,0,0.6);
         }
 
         .modal-title { font-size: 19px; font-weight: 600; margin-bottom: 12px; }
         .modal-body { font-size: 15.5px; line-height: 1.5; opacity: 0.85; white-space: pre-wrap; }
-        .modal-btn { 
-            color: var(--accent); font-weight: bold; text-align: right; 
-            margin-top: 24px; cursor: pointer; text-transform: uppercase; letter-spacing: 0.5px;
-        }
+        .modal-btn { color: var(--accent); font-weight: bold; text-align: right; margin-top: 24px; cursor: pointer; text-transform: uppercase; }
     </style>
 </head>
 <body>
@@ -118,7 +121,6 @@
     <script>
         const tg = window.Telegram.WebApp;
         tg.ready(); tg.expand();
-        tg.setHeaderColor('#000000');
 
         const binUrl = "https://api.jsonbin.io/v3/b/69a9530ed0ea881f40f12d78";
         const masterKey = "$2a$10$5YbFE8JVfomxRwl2x1XOzOyJXmUkVRi.ssHGBEvHkVGlSPyyBQcpC";
@@ -140,30 +142,34 @@
 
             categories.forEach(cat => {
                 const items = data[cat] || [];
+                const isStatic = cat === "Условия доставки";
                 const div = document.createElement('div');
-                div.className = 'category-container';
+                div.className = `category-container ${isStatic ? 'no-arrow' : ''}`;
                 
                 div.innerHTML = `
-                    <div class="category-header" onclick="toggleCat(this)">
+                    <div class="category-header" onclick="${isStatic ? '' : 'toggleCat(this)'}">
                         <div class="category-title">
-                            <div class="info-icon" onclick="showInfo(event, '${cat}', \`${infos[cat] || 'Описание отсутствует'}\`)">i</div>
+                            <div class="info-icon" onclick="showInfo(event, '${cat}', \`${infos[cat] || '...'}\`)">i</div>
                             ${cat}
                         </div>
                         <div class="arrow"></div>
                     </div>
+                    ${!isStatic ? `
                     <div class="category-content">
                         ${items.map(pos => `
                             <div class="pos-item">
                                 <span class="pos-name">${pos.name}</span>
                                 <span class="pos-price">${pos.price} ₽</span>
+                                <span class="status-icon ${pos.quantity > 0 ? 'in-stock' : 'out-of-stock'}">
+                                    ${pos.quantity > 0 ? '✔' : '✖'}
+                                </span>
                                 <div class="pos-links">
-                                    ${pos.quantity > 0 ? '<span class="check-icon">✔</span>' : ''}
                                     ${pos.avito ? `<a href="${pos.avito}"><img src="https://static.avito.ru/s/common/components/monorepo/visual_rubricator/models/desktop/avito_logo.png" class="link-icon"></a>` : ''}
                                     ${pos.ozon ? `<a href="${pos.ozon}"><img src="https://cdn1.ozone.ru/s3/cms/92/t96/favicon.ico" class="link-icon"></a>` : ''}
                                 </div>
                             </div>
                         `).join('')}
-                    </div>
+                    </div>` : ''}
                 `;
                 container.appendChild(div);
             });
@@ -179,7 +185,6 @@
             document.getElementById('modalTitle').innerText = title;
             document.getElementById('modalBody').innerText = text;
             document.getElementById('infoModal').style.display = 'flex';
-            if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
         }
 
         function closeModal() {
