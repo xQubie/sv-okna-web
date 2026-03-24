@@ -10,15 +10,14 @@
             --stroke: rgba(255, 255, 255, 0.12);
             --accent: #bb86fc;
             --green: #4CAF50;
-            --red: #F44336;
+            --red: #FF5252;
         }
 
         body {
-            /* Используем твой файл bg.jpg из репозитория */
             background: #000 url('bg.jpg') no-repeat center center fixed;
             background-size: cover;
             color: #fff;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
             margin: 0; padding: 16px;
             padding-bottom: env(safe-area-inset-bottom);
         }
@@ -60,9 +59,7 @@
             transform: rotate(45deg); transition: 0.3s; margin-right: 4px;
         }
 
-        /* Убираем стрелку для статичных разделов */
         .no-arrow .arrow { visibility: hidden; }
-
         .category-container.active .arrow { transform: rotate(-135deg); }
 
         .category-content {
@@ -73,10 +70,9 @@
 
         .category-container.active .category-content { display: block; }
 
-        /* Позиции: Строгая сетка для выравнивания цены */
         .pos-item {
             display: grid;
-            grid-template-columns: 1fr 100px 40px 60px;
+            grid-template-columns: 1fr 90px 40px 60px;
             align-items: center;
             padding: 14px 8px;
             border-bottom: 1px solid rgba(255,255,255,0.06);
@@ -85,17 +81,23 @@
         .pos-item:last-child { border-bottom: none; }
 
         .pos-name { font-size: 15px; opacity: 0.95; }
-        .pos-price { font-weight: 600; text-align: right; font-size: 15px; }
+        .pos-price { font-weight: 600; text-align: right; font-size: 14px; }
         
-        /* Цвета галочки и крестика */
-        .status-icon { text-align: center; font-size: 18px; font-weight: bold; }
-        .in-stock { color: var(--green); }
-        .out-of-stock { color: var(--red); }
+        /* Исправление цвета для iOS */
+        .status-icon { 
+            text-align: center; 
+            font-size: 18px; 
+            font-weight: bold;
+            /* Форсируем текстовый режим для символов */
+            display: inline-block;
+        }
+        
+        .in-stock { color: var(--green) !important; }
+        .out-of-stock { color: var(--red) !important; }
 
         .pos-links { display: flex; gap: 10px; justify-content: flex-end; }
         .link-icon { width: 22px; height: 22px; border-radius: 4px; }
 
-        /* Модальное окно (Диалог) */
         .modal {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.8); z-index: 1000; align-items: center; justify-content: center;
@@ -103,7 +105,6 @@
 
         .modal-content {
             background: #2c2c2e; width: 82%; border-radius: 14px; padding: 24px;
-            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
         }
 
         .modal-title { font-size: 19px; font-weight: 600; margin-bottom: 12px; }
@@ -147,7 +148,7 @@
                 const data = await response.json();
                 render(data);
             } catch (e) {
-                document.getElementById('app-content').innerText = "Ошибка загрузки данных";
+                document.getElementById('app-content').innerText = "Ошибка загрузки";
             }
         }
 
@@ -165,7 +166,7 @@
                 div.innerHTML = `
                     <div class="category-header" onclick="${isStatic ? '' : 'toggleCat(this)'}">
                         <div class="category-title">
-                            <div class="info-icon" onclick="showInfo(event, '${cat}', \`${infos[cat] || 'Описание отсутствует'}\`)">i</div>
+                            <div class="info-icon" onclick="showInfo(event, '${cat}', \`${infos[cat] || '...'}\`)">i</div>
                             ${cat}
                         </div>
                         <div class="arrow"></div>
@@ -177,7 +178,7 @@
                                 <span class="pos-name">${pos.name}</span>
                                 <span class="pos-price">${pos.price} ₽</span>
                                 <span class="status-icon ${pos.quantity > 0 ? 'in-stock' : 'out-of-stock'}">
-                                    ${pos.quantity > 0 ? '✔' : '✖'}
+                                    ${pos.quantity > 0 ? '&#10004;&#xFE0E;' : '&#10006;&#xFE0E;'}
                                 </span>
                                 <div class="pos-links">
                                     ${pos.avito ? `<a href="${pos.avito}"><img src="avito.png" class="link-icon"></a>` : ''}
