@@ -7,34 +7,33 @@
     <style>
         :root {
             --glass: rgba(45, 40, 35, 0.85);
-            --stroke: rgba(255, 255, 255, 0.1);
-            --accent: #bb86fc; /* Цвет текста кнопок в Android */
+            --stroke: rgba(255, 255, 255, 0.12);
+            --accent: #bb86fc; /* Фиолетовый акцент для кнопок диалога */
         }
 
         body {
             background: #000 url('https://sv-okna.ru/images/background_placeholder.jpg') no-repeat center center fixed;
             background-size: cover;
             color: #fff;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             margin: 0; padding: 16px;
-            padding-bottom: 100px;
+            padding-bottom: env(safe-area-inset-bottom);
         }
 
-        /* Эффект блюра как в приложении */
         body::before {
             content: ""; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px);
+            background: rgba(0, 0, 0, 0.45); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px);
             z-index: -1;
         }
 
-        /* Стили разделов (Аккордеон) */
+        /* Карточка категории (Аккордеон) */
         .category-container {
             background: var(--glass);
             border: 1px solid var(--stroke);
             border-radius: 28px;
             margin-bottom: 12px;
             overflow: hidden;
-            transition: all 0.3s ease;
+            transition: background 0.3s;
         }
 
         .category-header {
@@ -44,71 +43,63 @@
         }
 
         .category-title {
-            display: flex; align-items: center; gap: 12px;
-            font-size: 16px; font-weight: 500;
+            display: flex; align-items: center; gap: 14px;
+            font-size: 17px; font-weight: 500;
         }
 
         .info-icon {
-            width: 22px; height: 22px; background: rgba(255,255,255,0.1);
+            width: 24px; height: 24px; background: rgba(255,255,255,0.12);
             border-radius: 50%; display: flex; align-items: center; justify-content: center;
-            font-size: 14px; font-style: italic; font-weight: bold;
+            font-size: 14px; font-style: italic; font-weight: bold; color: rgba(255,255,255,0.9);
         }
 
         .arrow {
-            width: 12px; height: 12px; border-right: 2px solid #fff; border-bottom: 2px solid #fff;
-            transform: rotate(45deg); transition: 0.3s; margin-right: 5px;
+            width: 10px; height: 10px; border-right: 2px solid rgba(255,255,255,0.7); 
+            border-bottom: 2px solid rgba(255,255,255,0.7);
+            transform: rotate(45deg); transition: 0.3s; margin-right: 4px;
         }
 
         .category-container.active .arrow { transform: rotate(-135deg); }
 
         .category-content {
-            display: none; padding: 0 10px 15px 10px;
+            display: none; padding: 0 12px 16px 12px;
             border-top: 1px solid var(--stroke);
+            background: rgba(0,0,0,0.1);
         }
 
         .category-container.active .category-content { display: block; }
 
-        /* Позиции внутри */
+        /* Позиции товаров */
         .pos-item {
             display: flex; align-items: center; justify-content: space-between;
-            padding: 12px 10px; border-bottom: 1px solid rgba(255,255,255,0.05);
+            padding: 14px 8px; border-bottom: 1px solid rgba(255,255,255,0.06);
         }
 
-        .pos-name { flex: 1; font-size: 15px; opacity: 0.9; }
-        .pos-price { font-weight: 600; margin: 0 10px; white-space: nowrap; }
-        
-        .pos-links { display: flex; gap: 8px; align-items: center; }
-        .link-icon { width: 20px; height: 20px; border-radius: 4px; object-fit: cover; }
-        .check-icon { color: #4CAF50; font-weight: bold; }
+        .pos-item:last-child { border-bottom: none; }
 
-        /* Всплывающее окно (Диалог) */
+        .pos-name { flex: 1; font-size: 15.5px; opacity: 0.95; }
+        .pos-price { font-weight: 600; margin: 0 12px; font-size: 15px; }
+        
+        .pos-links { display: flex; gap: 10px; align-items: center; }
+        .link-icon { width: 22px; height: 22px; border-radius: 5px; opacity: 0.9; }
+        .check-icon { color: #4CAF50; font-size: 18px; margin-right: 4px; }
+
+        /* Модальное окно (Info Dialog) */
         .modal {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.7); z-index: 1000; align-items: center; justify-content: center;
+            background: rgba(0,0,0,0.75); z-index: 1000; align-items: center; justify-content: center;
         }
 
         .modal-content {
-            background: #2d2d2d; width: 85%; border-radius: 12px; padding: 24px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            background: #2c2c2e; width: 82%; border-radius: 14px; padding: 24px;
+            box-shadow: 0 15px 40px rgba(0,0,0,0.6);
         }
 
-        .modal-title { font-size: 18px; font-weight: 600; margin-bottom: 15px; }
-        .modal-body { font-size: 15px; line-height: 1.5; opacity: 0.9; white-space: pre-wrap; }
+        .modal-title { font-size: 19px; font-weight: 600; margin-bottom: 12px; }
+        .modal-body { font-size: 15.5px; line-height: 1.5; opacity: 0.85; white-space: pre-wrap; }
         .modal-btn { 
             color: var(--accent); font-weight: bold; text-align: right; 
-            margin-top: 20px; cursor: pointer; text-transform: uppercase;
-        }
-
-        /* Кнопки связи снизу */
-        .bottom-nav {
-            position: fixed; bottom: 20px; left: 16px; right: 16px;
-            display: flex; gap: 10px;
-        }
-        .nav-btn {
-            flex: 1; padding: 15px; border-radius: 30px; text-align: center;
-            text-decoration: none; color: #fff; font-weight: 600;
-            background: var(--glass); border: 1px solid var(--stroke);
-            backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+            margin-top: 24px; cursor: pointer; text-transform: uppercase; letter-spacing: 0.5px;
         }
     </style>
 </head>
@@ -124,14 +115,10 @@
         </div>
     </div>
 
-    <div class="bottom-nav">
-        <a href="tel:+79000000000" class="nav-btn">📞 Позвонить</a>
-        <a href="https://wa.me/79000000000" class="nav-btn">💬 WhatsApp</a>
-    </div>
-
     <script>
         const tg = window.Telegram.WebApp;
         tg.ready(); tg.expand();
+        tg.setHeaderColor('#000000');
 
         const binUrl = "https://api.jsonbin.io/v3/b/69a9530ed0ea881f40f12d78";
         const masterKey = "$2a$10$5YbFE8JVfomxRwl2x1XOzOyJXmUkVRi.ssHGBEvHkVGlSPyyBQcpC";
@@ -139,13 +126,16 @@
         const categories = ["Лиственница 78 [-5%]", "Липа 60 [-15%]", "ОСВ Для Дачи [-10%]", "Дуб 78", "Аксессуары", "Двери ПВХ", "Условия доставки"];
 
         async function loadData() {
-            const response = await fetch(binUrl, { headers: { "X-Master-Key": masterKey, "X-Bin-Meta": "false" } });
-            const data = await response.json();
-            render(data);
+            try {
+                const response = await fetch(binUrl, { headers: { "X-Master-Key": masterKey, "X-Bin-Meta": "false" } });
+                const data = await response.json();
+                render(data);
+            } catch (e) { document.getElementById('app-content').innerText = "Ошибка загрузки"; }
         }
 
         function render(data) {
             const container = document.getElementById('app-content');
+            container.innerHTML = '';
             const infos = data._category_infos || {};
 
             categories.forEach(cat => {
@@ -155,4 +145,48 @@
                 
                 div.innerHTML = `
                     <div class="category-header" onclick="toggleCat(this)">
-                        <div class="category
+                        <div class="category-title">
+                            <div class="info-icon" onclick="showInfo(event, '${cat}', \`${infos[cat] || 'Описание отсутствует'}\`)">i</div>
+                            ${cat}
+                        </div>
+                        <div class="arrow"></div>
+                    </div>
+                    <div class="category-content">
+                        ${items.map(pos => `
+                            <div class="pos-item">
+                                <span class="pos-name">${pos.name}</span>
+                                <span class="pos-price">${pos.price} ₽</span>
+                                <div class="pos-links">
+                                    ${pos.quantity > 0 ? '<span class="check-icon">✔</span>' : ''}
+                                    ${pos.avito ? `<a href="${pos.avito}"><img src="https://static.avito.ru/s/common/components/monorepo/visual_rubricator/models/desktop/avito_logo.png" class="link-icon"></a>` : ''}
+                                    ${pos.ozon ? `<a href="${pos.ozon}"><img src="https://cdn1.ozone.ru/s3/cms/92/t96/favicon.ico" class="link-icon"></a>` : ''}
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function toggleCat(el) {
+            el.parentElement.classList.toggle('active');
+            if (tg.HapticFeedback) tg.HapticFeedback.selectionChanged();
+        }
+
+        function showInfo(event, title, text) {
+            event.stopPropagation();
+            document.getElementById('modalTitle').innerText = title;
+            document.getElementById('modalBody').innerText = text;
+            document.getElementById('infoModal').style.display = 'flex';
+            if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+        }
+
+        function closeModal() {
+            document.getElementById('infoModal').style.display = 'none';
+        }
+
+        loadData();
+    </script>
+</body>
+</html>
