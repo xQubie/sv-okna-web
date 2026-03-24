@@ -2,56 +2,146 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         :root {
-            --glass-bg: rgba(255, 255, 255, 0.1);
-            --glass-stroke: rgba(255, 255, 255, 0.2);
+            /* Цвета как в твоем Android приложении */
+            --glass-bg: rgba(255, 255, 255, 0.08);
+            --glass-stroke: rgba(255, 255, 255, 0.15);
+            --accent: #4da3ff; /* Пример твоего синего акцента */
             --text-main: #ffffff;
+            --text-secondary: rgba(255, 255, 255, 0.6);
         }
+
         body {
-            background: #121212;
+            background-color: #000;
+            /* Фон с блюром, как в твоем loadWallpaper() */
+            background-image: url('https://sv-okna.ru/images/background_placeholder.jpg'); 
+            background-attachment: fixed;
+            background-size: cover;
+            background-position: center;
             color: var(--text-main);
-            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-            margin: 0; padding: 16px;
+            font-family: "Roboto", "Helvetica Neue", sans-serif;
+            margin: 0;
+            padding: 16px;
+            padding-bottom: 100px; /* Место под кнопки связи */
         }
+
+        /* Эффект матового стекла для всего контента */
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            z-index: -1;
+        }
+
+        /* Стилизация карточек MaterialCardView */
         .card {
             background: var(--glass-bg);
-            backdrop-filter: blur(15px);
-            -webkit-backdrop-filter: blur(15px);
             border: 1px solid var(--glass-stroke);
-            border-radius: 16px;
-            margin-bottom: 16px;
+            border-radius: 12px;
+            margin-bottom: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
             overflow: hidden;
         }
+
         .card-header {
-            padding: 16px;
-            font-weight: bold;
-            border-bottom: 1px solid var(--glass-stroke);
-            background: rgba(255,255,255,0.05);
+            padding: 14px 16px;
+            font-size: 17px;
+            font-weight: 600;
+            background: rgba(255, 255, 255, 0.03);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
+
         .position-item {
             padding: 12px 16px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            border-bottom: 1px solid rgba(255,255,255,0.05);
+            border-top: 1px solid var(--glass-stroke);
         }
-        .price { font-weight: 600; }
-        .status-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-left: 8px; }
+
+        .pos-name {
+            font-size: 15px;
+            flex: 1;
+        }
+
+        .pos-details {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .price {
+            font-weight: 700;
+            color: #fff;
+        }
+
+        /* Индикаторы наличия как в твоем коде (ic_check_solid / ic_close_solid) */
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
         .in-stock { background: #4CAF50; box-shadow: 0 0 8px #4CAF50; }
-        .out-of-stock { background: #F44336; }
-        .category-info { padding: 8px 16px; font-size: 0.85em; color: rgba(255,255,255,0.6); }
+        .out-of-stock { background: #F44336; box-shadow: 0 0 8px #F44336; }
+
+        .category-info {
+            padding: 8px 16px;
+            font-size: 13px;
+            color: var(--text-secondary);
+            line-height: 1.4;
+        }
+
+        /* Нижняя панель управления */
+        .bottom-bar {
+            position: fixed;
+            bottom: 0; left: 0; right: 0;
+            padding: 20px 16px calc(20px + env(safe-area-inset-bottom));
+            background: linear-gradient(transparent, rgba(0,0,0,0.8));
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 14px;
+            border-radius: 10px;
+            border: none;
+            color: white;
+            font-weight: 700;
+            text-align: center;
+            text-decoration: none;
+            font-size: 14px;
+            backdrop-filter: blur(10px);
+        }
+
+        .btn-call { background: rgba(76, 175, 80, 0.8); border: 1px solid rgba(255,255,255,0.2); }
+        .btn-wa { background: rgba(37, 211, 102, 0.8); border: 1px solid rgba(255,255,255,0.2); }
     </style>
 </head>
 <body>
-    <div id="app-content">Загрузка прайса...</div>
+    <div id="app-content"></div>
+
+    <div class="bottom-bar">
+        <a href="tel:+79000000000" class="btn btn-call">📞 Позвонить</a>
+        <a href="https://wa.me/79000000000" class="btn btn-wa">💬 WhatsApp</a>
+    </div>
 
     <script>
         const tg = window.Telegram.WebApp;
         tg.ready();
         tg.expand();
+
+        // Устанавливаем цвета темы Telegram
+        tg.setHeaderColor('#000000');
+        tg.setBackgroundColor('#000000');
 
         const binUrl = "https://api.jsonbin.io/v3/b/69a9530ed0ea881f40f12d78";
         const masterKey = "$2a$10$5YbFE8JVfomxRwl2x1XOzOyJXmUkVRi.ssHGBEvHkVGlSPyyBQcpC";
@@ -84,15 +174,16 @@
 
                 const card = document.createElement('div');
                 card.className = 'card';
-                let html = `<div class="card-header">${cat}</div>`;
+                
+                let html = `<div class="card-header"><span>${cat}</span></div>`;
                 if (infos[cat]) html += `<div class="category-info">${infos[cat]}</div>`;
 
                 items.forEach(pos => {
                     const statusClass = pos.quantity > 0 ? 'in-stock' : 'out-of-stock';
                     html += `
                         <div class="position-item">
-                            <span>${pos.name}</span>
-                            <div>
+                            <span class="pos-name">${pos.name}</span>
+                            <div class="pos-details">
                                 <span class="price">${pos.price} ₽</span>
                                 <span class="status-dot ${statusClass}"></span>
                             </div>
@@ -101,7 +192,10 @@
                 card.innerHTML = html;
                 container.appendChild(card);
             });
+            
+            if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
         }
+
         loadData();
     </script>
 </body>
