@@ -30,6 +30,7 @@
             border-radius: 24px;
             margin-bottom: 12px;
             overflow: hidden;
+            transition: all 0.3s ease;
         }
 
         .category-header {
@@ -59,37 +60,38 @@
         .no-arrow .arrow { visibility: hidden; }
         .category-container.active .arrow { transform: rotate(-135deg); }
 
-        /* ПЛАВНОЕ РАСКРЫТИЕ */
+        /* ИСПРАВЛЕННАЯ АНИМАЦИЯ */
         .category-content {
             max-height: 0;
             opacity: 0;
             overflow: hidden;
-            transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+            /* Ускоряем схлопывание и синхронизируем прозрачность */
+            transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), 
+                        opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+                        padding 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             padding: 0 12px;
         }
 
         .category-container.active .category-content {
-            max-height: 3000px;
+            max-height: 2000px; /* С запасом под контент */
             opacity: 1;
             padding: 0 12px 16px 12px;
             border-top: 1px solid var(--stroke);
         }
 
-        /* КАРТОЧКА ТОВАРА */
         .pos-item {
             display: grid;
-            /* 1fr для названия (лево), авто для цены, 35px для чекбокса, 55px для ссылок */
             grid-template-columns: 1fr auto 35px 55px;
             align-items: center;
             padding: 16px 8px;
             border-bottom: 1px solid rgba(255,255,255,0.06);
-            text-align: left; /* Выравнивание по левому краю */
+            text-align: left;
         }
 
         .pos-item:last-child { border-bottom: none; }
 
         .pos-name { 
-            font-size: 17px; /* Увеличено на ~15% */
+            font-size: 17px; 
             font-weight: 400;
             opacity: 0.95; 
             padding-right: 10px;
@@ -121,9 +123,7 @@
             border: 1px solid rgba(255,255,255,0.1); transform: scale(0.9); transition: 0.2s;
         }
         .modal.show .modal-content { transform: scale(1); }
-        .modal-title { font-size: 20px; font-weight: 700; margin-bottom: 12px; color: var(--accent); }
-        .modal-body { font-size: 15px; line-height: 1.5; opacity: 0.8; margin-bottom: 20px; white-space: pre-wrap; }
-        .modal-btn { background: var(--accent); color: #fff; text-align: center; padding: 12px; border-radius: 16px; font-weight: 700; }
+        .modal-btn { background: var(--accent); color: #fff; text-align: center; padding: 12px; border-radius: 16px; font-weight: 700; margin-top: 20px; cursor: pointer;}
     </style>
 </head>
 <body>
@@ -132,8 +132,8 @@
 
     <div id="infoModal" class="modal" onclick="closeModal()">
         <div class="modal-content" onclick="event.stopPropagation()">
-            <div id="modalTitle" class="modal-title"></div>
-            <div id="modalBody" class="modal-body"></div>
+            <div id="modalTitle" style="font-size: 20px; font-weight: 700; margin-bottom: 12px; color: var(--accent);"></div>
+            <div id="modalBody" style="font-size: 15px; line-height: 1.5; opacity: 0.8; white-space: pre-wrap;"></div>
             <div class="modal-btn" onclick="closeModal()">ОК</div>
         </div>
     </div>
