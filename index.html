@@ -21,14 +21,13 @@
             padding-bottom: env(safe-area-inset-bottom);
         }
 
-        /* ФИКСИРОВАННЫЙ ФОН */
         body::before {
             content: "";
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
             background: url('bg.jpg') no-repeat center center;
             background-size: cover;
-            z-index: -1; /* Обои всегда сзади */
+            z-index: -1;
         }
 
         .category-container {
@@ -68,7 +67,6 @@
         .category-container.active .arrow { transform: rotate(-135deg); }
         .no-arrow .arrow { visibility: hidden; }
 
-        /* АНИМАЦИЯ */
         .category-content {
             max-height: 0;
             opacity: 0;
@@ -84,13 +82,11 @@
             opacity: 1;
             padding: 0 12px 16px 12px;
             border-top: 1px solid var(--stroke);
-            transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), 
-                        opacity 0.5s ease-in;
         }
 
         .pos-item {
             display: grid;
-            grid-template-columns: 1fr auto 35px 55px;
+            grid-template-columns: 1fr auto 40px 55px;
             align-items: center;
             padding: 16px 8px;
             border-bottom: 1px solid rgba(255,255,255,0.06);
@@ -104,17 +100,28 @@
             padding-right: 10px; line-height: 1.3;
         }
 
-        .pos-price { font-weight: 700; font-size: 14px; white-space: nowrap; }
+        /* ЦЕНА ТЕПЕРЬ 17px */
+        .pos-price { 
+            font-weight: 700; 
+            font-size: 17px; 
+            white-space: nowrap; 
+            color: #fff;
+        }
         
-        /* ЦВЕТНЫЕ ГАЛОЧКИ И КРЕСТИКИ */
-        .status-icon { text-align: center; font-size: 18px; font-weight: bold; }
-        .in-stock { color: #4CAF50 !important; } /* Насыщенный зеленый */
-        .out-of-stock { color: #FF5252 !important; } /* Насыщенный красный */
+        /* ГАРАНТИРОВАННЫЙ ЦВЕТ ИКОНОК СТАТУСА */
+        .status-icon { 
+            text-align: center; 
+            font-size: 20px; 
+            font-weight: 900; 
+            display: flex;
+            justify-content: center;
+        }
+        .in-stock { color: #4CAF50 !important; text-shadow: 0 0 10px rgba(76, 175, 80, 0.2); }
+        .out-of-stock { color: #FF5252 !important; text-shadow: 0 0 10px rgba(255, 82, 82, 0.2); }
 
         .pos-links { display: flex; gap: 8px; justify-content: flex-end; }
         .link-icon { width: 22px; height: 22px; border-radius: 5px; opacity: 0.9; }
 
-        /* МОДАЛКА */
         .modal {
             display: none; position: fixed; inset: 0;
             background: rgba(0,0,0,0.7); z-index: 1000; align-items: center; justify-content: center;
@@ -183,7 +190,7 @@
                                 <span class="pos-name">${pos.name}</span>
                                 <span class="pos-price">${pos.price} ₽</span>
                                 <span class="status-icon ${pos.quantity > 0 ? 'in-stock' : 'out-of-stock'}">
-                                    ${pos.quantity > 0 ? '✔' : '✖'}
+                                    ${pos.quantity > 0 ? '&#10004;' : '&#10006;'}
                                 </span>
                                 <div class="pos-links">
                                     ${pos.avito ? `<a href="${pos.avito}"><img src="avito.png" class="link-icon"></a>` : ''}
