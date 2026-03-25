@@ -63,25 +63,27 @@
             font-size: 13px; font-weight: bold; color: var(--accent);
         }
 
+        /* Ускоряем поворот стрелки */
         .arrow {
             width: 8px; height: 8px; border-right: 2px solid rgba(255,255,255,0.5); 
             border-bottom: 2px solid rgba(255,255,255,0.5);
-            transform: rotate(45deg); transition: 0.3s ease;
+            transform: rotate(45deg); transition: 0.2s ease-out;
         }
 
         .category-container.active .arrow { transform: rotate(-135deg); }
         .no-arrow .arrow { visibility: hidden; }
 
-        /* СОСТОЯНИЕ: СВЕРНУТО (ускоряем закрытие) */
+        /* ИСПРАВЛЕННАЯ ЛОГИКА ЗАКРЫТИЯ */
         .category-content {
             max-height: 0;
             opacity: 0;
             overflow: hidden;
-            transition: max-height 0.2s ease-out, opacity 0.15s linear, padding 0.2s ease-out;
+            /* При закрытии - никакой задержки по высоте, только быстрое исчезновение текста */
+            transition: max-height 0s, opacity 0.1s linear, padding 0s;
             padding: 0 12px;
         }
 
-        /* СОСТОЯНИЕ: РАЗВЕРНУТО (оставляем плавным) */
+        /* ПРИ ОТКРЫТИИ - оставляем плавность */
         .category-container.active .category-content {
             max-height: 3000px;
             opacity: 1;
@@ -202,6 +204,7 @@
 
         function toggleCat(el) {
             el.parentElement.classList.toggle('active');
+            // Оставляем виброотклик для подтверждения действия
             if (tg.HapticFeedback) tg.HapticFeedback.selectionChanged();
         }
 
