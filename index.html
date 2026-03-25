@@ -31,6 +31,7 @@
             z-index: -1;
         }
 
+        /* ПОЯВЛЕНИЕ РАЗДЕЛОВ */
         .category-container {
             background: var(--glass);
             backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
@@ -95,17 +96,20 @@
 
         .pos-item:last-child { border-bottom: none; }
         .pos-name { font-size: 17px; font-weight: 400; opacity: 0.95; padding-right: 10px; line-height: 1.3; }
-        .pos-price { font-weight: 700; font-size: 17px; white-space: nowrap; color: #fff; }
+
+        /* ЦЕНА: ТЕПЕРЬ ОБЫЧНЫЙ ШРИФТ (НЕ ЖИРНЫЙ) */
+        .pos-price { 
+            font-weight: 400; 
+            font-size: 17px; 
+            white-space: nowrap; 
+            color: #fff; 
+        }
         
-        /* СТИЛИ ДЛЯ SVG ИКОНОК */
-        .status-icon { 
-            display: flex; justify-content: center; align-items: center; 
-        }
-        .status-icon svg {
-            width: 20px; height: 20px;
-        }
-        .in-stock svg { fill: var(--green); filter: drop-shadow(0 0 5px rgba(76, 175, 80, 0.4)); }
-        .out-of-stock svg { fill: var(--red); filter: drop-shadow(0 0 5px rgba(255, 82, 82, 0.4)); }
+        /* ГАРАНТИРОВАННО ЦВЕТНЫЕ ИКОНКИ ДЛЯ IOS */
+        .status-icon { display: flex; justify-content: center; align-items: center; }
+        .status-icon svg { width: 20px; height: 20px; }
+        .in-stock svg { fill: var(--green); filter: drop-shadow(0 0 5px rgba(76, 175, 80, 0.3)); }
+        .out-of-stock svg { fill: var(--red); filter: drop-shadow(0 0 5px rgba(255, 82, 82, 0.3)); }
 
         .pos-links { display: flex; gap: 8px; justify-content: flex-end; }
         .link-icon { width: 22px; height: 22px; border-radius: 5px; opacity: 0.9; }
@@ -144,7 +148,7 @@
         const masterKey = "$2a$10$5YbFE8JVfomxRwl2x1XOzOyJXmUkVRi.ssHGBEvHkVGlSPyyBQcpC";
         const categories = ["Лиственница 78 [-5%]", "Липа 60 [-15%]", "ОСВ Для Дачи [-10%]", "Дуб 78", "Аксессуары", "Двери ПВХ", "Условия доставки"];
 
-        // SVG ШАБЛОНЫ
+        // SVG ИКОНКИ ДЛЯ IOS
         const iconCheck = `<svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>`;
         const iconClose = `<svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>`;
 
@@ -185,8 +189,8 @@
                                     ${pos.quantity > 0 ? iconCheck : iconClose}
                                 </span>
                                 <div class="pos-links">
-                                    ${pos.avito ? `<a href="${pos.avito}"><img src="avito.png" class="link-icon"></a>` : ''}
-                                    ${pos.ozon ? `<a href="${pos.ozon}"><img src="ozon.png" class="link-icon"></a>` : ''}
+                                    ${pos.avito ? `<a href="${pos.avito}" target="_blank"><img src="avito.png" class="link-icon"></a>` : ''}
+                                    ${pos.ozon ? `<a href="${pos.ozon}" target="_blank"><img src="ozon.png" class="link-icon"></a>` : ''}
                                 </div>
                             </div>
                         `).join('')}
@@ -194,6 +198,7 @@
                 `;
                 container.appendChild(div);
 
+                // ЭФФЕКТ ПРИ ЗАПУСКЕ
                 setTimeout(() => {
                     div.classList.add('visible');
                     if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
