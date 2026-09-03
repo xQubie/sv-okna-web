@@ -71,12 +71,10 @@ body {
     left: 0;
     right: 0;
     bottom: 0;
-    height: calc(var(--safe-bottom) + 96px);
+    height: calc(var(--safe-bottom) + 40px);
     background: linear-gradient(
         to top,
-        #000 0,
-        rgba(0, 0, 0, 0.65) 22%,
-        rgba(0, 0, 0, 0.28) 55%,
+        rgba(0, 0, 0, 0.28) 0,
         transparent 100%
     );
     z-index: 4;
