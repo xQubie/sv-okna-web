@@ -200,6 +200,7 @@ body {
     font-size: 14px;
     line-height: 20px;
     text-align: left;
+    white-space: pre-wrap;
     color: color-mix(in srgb, var(--cream) 82%, transparent);
     -webkit-overflow-scrolling: touch;
 }
