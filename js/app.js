@@ -32,8 +32,8 @@ function initTelegram() {
     try {
         tg.ready();
         tg.expand();
-        tg.setHeaderColor("#140E0C");
-        tg.setBackgroundColor("#140E0C");
+        tg.setHeaderColor("#000000");
+        tg.setBackgroundColor("#000000");
     } catch (_) { /* ignore */ }
 }
 
