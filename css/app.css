@@ -25,12 +25,7 @@ html, body {
     max-height: 100dvh;
     color: var(--cream);
     font-family: var(--font);
-    background-color: #000;
-    background-image: url("../img/bg_banya.jpg");
-    background-position: center;
-    background-size: cover;
-    background-repeat: no-repeat;
-    background-attachment: fixed;
+    background: #2a1c12;
     overflow: hidden;
     overscroll-behavior: none;
 }
@@ -41,10 +36,18 @@ body {
     padding: calc(14px + var(--safe-top)) 0 0;
 }
 
+.bg {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background: url("../img/bg_banya.jpg") center / cover no-repeat;
+}
+
 .scrim {
     position: fixed;
     inset: 0;
-    background: linear-gradient(180deg, rgba(20, 14, 12, 0.66), rgba(20, 14, 12, 0.95));
+    background: linear-gradient(180deg, rgba(20, 14, 12, 0.55), rgba(20, 14, 12, 0.72));
     z-index: 0;
     pointer-events: none;
 }
