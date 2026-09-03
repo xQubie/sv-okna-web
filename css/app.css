@@ -280,10 +280,13 @@ body {
     gap: 8px;
     overflow-x: hidden;
     overflow-y: auto;
+    padding-top: 8px;
     padding-bottom: calc(24px + var(--safe-bottom));
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
     touch-action: pan-y;
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 28px, #000 100%);
+    mask-image: linear-gradient(to bottom, transparent 0, #000 28px, #000 100%);
 }
 
 .pos {
