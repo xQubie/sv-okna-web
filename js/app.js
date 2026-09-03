@@ -33,9 +33,9 @@ function initTelegram() {
         tg.ready();
         tg.expand();
         tg.setHeaderColor("#000000");
-        tg.setBackgroundColor("#140E0C");
+        tg.setBackgroundColor("#000000");
         if (typeof tg.setBottomBarColor === "function") {
-            tg.setBottomBarColor("#140E0C");
+            tg.setBottomBarColor("#000000");
         }
     } catch (_) { /* ignore */ }
 }

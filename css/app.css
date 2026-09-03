@@ -27,7 +27,7 @@ html {
     color: var(--cream);
     color-scheme: dark;
     font-family: var(--font);
-    background-color: var(--night);
+    background-color: #000;
     background-image: url("../img/bg_banya.jpg");
     background-position: center;
     background-size: cover;
@@ -96,6 +96,23 @@ body {
         transparent 100%
     );
     z-index: 2;
+    pointer-events: none;
+}
+
+.bottom-fade {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: calc(var(--safe-bottom) + 80px);
+    background: linear-gradient(
+        to top,
+        #000 0,
+        #000 var(--safe-bottom),
+        rgba(0, 0, 0, 0.5) calc(var(--safe-bottom) + 32px),
+        transparent 100%
+    );
+    z-index: 4;
     pointer-events: none;
 }
 
@@ -297,7 +314,7 @@ body {
     overflow-x: hidden;
     overflow-y: auto;
     padding-top: 8px;
-    padding-bottom: calc(24px + var(--safe-bottom));
+    padding-bottom: calc(40px + var(--safe-bottom));
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
     touch-action: pan-y;
