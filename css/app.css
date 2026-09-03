@@ -1,11 +1,5 @@
-@font-face {
-    font-family: Geologica;
-    src: url("../fonts/geologica.ttf") format("truetype");
-    font-weight: 100 900;
-    font-display: swap;
-}
-
 :root {
+    --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", Helvetica, Arial, sans-serif;
     --night: #140E0C;
     --surface: #2C1C14;
     --cream: #F6EFE4;
@@ -29,7 +23,7 @@ html, body {
     margin: 0;
     min-height: 100%;
     color: var(--cream);
-    font-family: Geologica, -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family: var(--font);
     background: var(--night) url("../img/bg_banya.jpg") center / cover no-repeat fixed;
 }
 
@@ -84,7 +78,7 @@ body {
     border-radius: 14px;
     min-width: 72px;
     padding: 10px 12px 6px;
-    font: 11px/1 Geologica, sans-serif;
+    font: 11px/1 var(--font);
     cursor: pointer;
 }
 
@@ -112,7 +106,7 @@ body {
     border: 0;
     background: none;
     color: var(--gold);
-    font: 14px Geologica, sans-serif;
+    font: 14px/1.2 var(--font);
     cursor: pointer;
 }
 
