@@ -66,6 +66,23 @@ body {
     pointer-events: none;
 }
 
+.bottom-fade {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: calc(var(--safe-bottom) + 72px);
+    background: linear-gradient(
+        to top,
+        #000 0,
+        #000 var(--safe-bottom),
+        rgba(0, 0, 0, 0.55) calc(var(--safe-bottom) + 28px),
+        transparent 100%
+    );
+    z-index: 4;
+    pointer-events: none;
+}
+
 .top, .error-banner, .carousel-wrap, .panel {
     position: relative;
     z-index: 3;
