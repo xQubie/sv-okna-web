@@ -140,13 +140,31 @@ function linkHref(url) {
     return /^https?:\/\//i.test(url) ? url : `https://${url}`;
 }
 
+function fillPanel() {
+    const panel = document.getElementById("panel");
+    const rail = document.querySelector(".carousel-wrap");
+    if (!panel || !rail) return;
+    const banner = document.getElementById("errorBanner");
+    const anchor = (banner && !banner.classList.contains("hidden")) ? banner : rail;
+    const top = Math.round(anchor.getBoundingClientRect().bottom + 4);
+    panel.style.position = "fixed";
+    panel.style.left = "0";
+    panel.style.right = "0";
+    panel.style.bottom = "0";
+    panel.style.top = `${Math.max(0, top)}px`;
+    panel.style.height = "auto";
+    panel.style.marginTop = "0";
+}
+
 function showError(message) {
     errorText.textContent = message;
     errorBanner.classList.remove("hidden");
+    fillPanel();
 }
 
 function hideError() {
     errorBanner.classList.add("hidden");
+    fillPanel();
 }
 
 function plaqueHtml(key, index) {
@@ -305,6 +323,7 @@ async function loadData(manual) {
         lastPlaqueIndex = -1;
         renderCarousel(true);
         syncLabel.textContent = formatTime(new Date());
+        requestAnimationFrame(fillPanel);
         if (manual) haptic("ok");
     } catch (_) {
         showError("Нет связи со складом");
@@ -314,9 +333,17 @@ async function loadData(manual) {
 }
 
 carousel.addEventListener("scroll", onCarouselScroll, { passive: true });
-window.addEventListener("resize", updatePlaqueTransforms);
+window.addEventListener("resize", () => {
+    updatePlaqueTransforms();
+    fillPanel();
+});
+if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", fillPanel);
+    window.visualViewport.addEventListener("scroll", fillPanel);
+}
 refreshBtn.addEventListener("click", () => loadData(true));
 retryBtn.addEventListener("click", () => loadData(true));
 
 initTelegram();
+fillPanel();
 loadData(false);
