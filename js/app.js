@@ -140,31 +140,28 @@ function linkHref(url) {
     return /^https?:\/\//i.test(url) ? url : `https://${url}`;
 }
 
-function fillPanel() {
-    const panel = document.getElementById("panel");
-    const rail = document.querySelector(".carousel-wrap");
-    if (!panel || !rail) return;
-    const banner = document.getElementById("errorBanner");
-    const anchor = (banner && !banner.classList.contains("hidden")) ? banner : rail;
-    const top = Math.round(anchor.getBoundingClientRect().bottom + 4);
-    panel.style.position = "fixed";
-    panel.style.left = "0";
-    panel.style.right = "0";
-    panel.style.top = `${Math.max(0, top)}px`;
-    panel.style.bottom = "calc(-1 * env(safe-area-inset-bottom, 0px))";
-    panel.style.height = "auto";
-    panel.style.marginTop = "0";
+function applySafeArea() {
+    const probe = document.createElement("div");
+    probe.style.cssText = "position:absolute;visibility:hidden;pointer-events:none;height:env(safe-area-inset-bottom,0px)";
+    document.body.appendChild(probe);
+    const envH = probe.getBoundingClientRect().height;
+    probe.remove();
+    const tg = Number(window.Telegram?.WebApp?.safeAreaInset?.bottom || 0);
+    const standalone = Boolean(
+        window.navigator.standalone
+        || window.matchMedia("(display-mode: standalone)").matches,
+    );
+    const px = Math.max(envH, tg, standalone ? 34 : 0);
+    document.documentElement.style.setProperty("--safe-bottom", `${px}px`);
 }
 
 function showError(message) {
     errorText.textContent = message;
     errorBanner.classList.remove("hidden");
-    fillPanel();
 }
 
 function hideError() {
     errorBanner.classList.add("hidden");
-    fillPanel();
 }
 
 function plaqueHtml(key, index) {
@@ -275,7 +272,7 @@ function renderPositions(key, animate) {
     const items = warehouse.positions[key] || [];
     const isDelivery = key === DELIVERY;
     if (!items.length) {
-        positionsEl.innerHTML = `<div class="empty">В этом разделе пока пусто</div>`;
+        positionsEl.innerHTML = `<div class="empty">В этом разделе пока пусто</div><div class="list-end"></div>`;
         return;
     }
     positionsEl.innerHTML = items.map((pos, i) => {
@@ -304,7 +301,7 @@ function renderPositions(key, animate) {
                 ${links}
             </article>
         `;
-    }).join("");
+    }).join("") + `<div class="list-end"></div>`;
 }
 
 async function loadData(manual) {
@@ -323,7 +320,6 @@ async function loadData(manual) {
         lastPlaqueIndex = -1;
         renderCarousel(true);
         syncLabel.textContent = formatTime(new Date());
-        requestAnimationFrame(fillPanel);
         if (manual) haptic("ok");
     } catch (_) {
         showError("Нет связи со складом");
@@ -333,17 +329,10 @@ async function loadData(manual) {
 }
 
 carousel.addEventListener("scroll", onCarouselScroll, { passive: true });
-window.addEventListener("resize", () => {
-    updatePlaqueTransforms();
-    fillPanel();
-});
-if (window.visualViewport) {
-    window.visualViewport.addEventListener("resize", fillPanel);
-    window.visualViewport.addEventListener("scroll", fillPanel);
-}
+window.addEventListener("resize", updatePlaqueTransforms);
 refreshBtn.addEventListener("click", () => loadData(true));
 retryBtn.addEventListener("click", () => loadData(true));
 
 initTelegram();
-fillPanel();
+applySafeArea();
 loadData(false);
