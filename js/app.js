@@ -33,9 +33,9 @@ function initTelegram() {
         tg.ready();
         tg.expand();
         tg.setHeaderColor("#000000");
-        tg.setBackgroundColor("#000000");
+        tg.setBackgroundColor("#1A120C");
         if (typeof tg.setBottomBarColor === "function") {
-            tg.setBottomBarColor("#000000");
+            tg.setBottomBarColor("#1A120C");
         }
     } catch (_) { /* ignore */ }
 }
@@ -150,8 +150,8 @@ function fillPanel() {
     panel.style.position = "fixed";
     panel.style.left = "0";
     panel.style.right = "0";
-    panel.style.bottom = "0";
     panel.style.top = `${Math.max(0, top)}px`;
+    panel.style.bottom = "calc(-1 * env(safe-area-inset-bottom, 0px))";
     panel.style.height = "auto";
     panel.style.marginTop = "0";
 }
