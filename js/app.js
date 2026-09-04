@@ -13,18 +13,22 @@ const DEFAULT_CATEGORIES = [
 const DELIVERY = "Условия доставки";
 const PVC = "Двери ПВХ";
 
-const carousel = document.getElementById("carousel");
+const chipsEl = document.getElementById("chips");
 const positionsEl = document.getElementById("positions");
 const syncLabel = document.getElementById("syncLabel");
 const errorBanner = document.getElementById("errorBanner");
 const errorText = document.getElementById("errorText");
 const refreshBtn = document.getElementById("refreshBtn");
 const retryBtn = document.getElementById("retryBtn");
+const hero = document.getElementById("hero");
+const heroImg = document.getElementById("heroImg");
+const heroTitle = document.getElementById("heroTitle");
+const heroKicker = document.getElementById("heroKicker");
+const heroCount = document.getElementById("heroCount");
+const infoEl = document.getElementById("info");
 
 let warehouse = { categories: [], titles: {}, infos: {}, positions: {} };
 let selectedKey = null;
-let lastPlaqueIndex = -1;
-let ticking = false;
 
 function initTelegram() {
     const tg = window.Telegram?.WebApp;
@@ -140,6 +144,14 @@ function linkHref(url) {
     return /^https?:\/\//i.test(url) ? url : `https://${url}`;
 }
 
+function escapeHtml(text) {
+    return String(text)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;");
+}
+
 function showError(message) {
     errorText.textContent = message;
     errorBanner.classList.remove("hidden");
@@ -149,111 +161,71 @@ function hideError() {
     errorBanner.classList.add("hidden");
 }
 
-function plaqueHtml(key, index) {
-    const title = displayTitle(key);
-    const info = warehouse.infos[key] || "";
-    return `
-        <article class="plaque" data-key="${encodeURIComponent(key)}" data-index="${index}">
-            <div class="plaque-inner">
-                <img class="plaque-logo" src="img/logo_sv_okna.png" alt="">
-                <div class="plaque-body">
-                    <h2 class="plaque-title">${escapeHtml(title)}</h2>
-                    ${info ? `<div class="plaque-info">${escapeHtml(info)}</div>` : ""}
-                </div>
-            </div>
-        </article>
-    `;
+function heroSrc(key) {
+    if (key === PVC) return "img/hero-door.jpg";
+    if (key === DELIVERY || key === "Аксессуары") return "img/hero-still.jpg";
+    return "img/hero-wood.jpg";
 }
 
-function escapeHtml(text) {
-    return String(text)
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;");
+function heroKickerText(key) {
+    if (key === PVC) return "двери";
+    if (key === DELIVERY) return "логистика";
+    if (key === "Аксессуары") return "комплектация";
+    return "пиломатериал";
 }
 
-function renderCarousel(animate) {
-    carousel.innerHTML = warehouse.categories.map((key, i) => plaqueHtml(key, i)).join("");
-    const plaques = [...carousel.querySelectorAll(".plaque")];
-    plaques.forEach((el, i) => {
-        const inner = el.querySelector(".plaque-inner");
-        if (animate) {
-            if (inner) inner.style.animationDelay = `${i * 70}ms`;
-            requestAnimationFrame(() => el.classList.add("ready"));
-            window.setTimeout(() => haptic("appear"), 40 + i * 70);
-        } else {
-            el.classList.add("ready");
-            if (inner) {
-                inner.style.animation = "none";
-                inner.style.opacity = "1";
-                inner.style.transform = "none";
-            }
-        }
-    });
-    const start = Math.max(0, warehouse.categories.indexOf(selectedKey));
-    requestAnimationFrame(() => {
-        const target = plaques[start];
-        if (target) target.scrollIntoView({ inline: "center", block: "nearest", behavior: "auto" });
-        updatePlaqueTransforms();
-        renderPositions(warehouse.categories[start] || warehouse.categories[0], true);
-    });
+function countLabel(n) {
+    const mod10 = n % 10;
+    const mod100 = n % 100;
+    if (mod10 === 1 && mod100 !== 11) return `${n} позиция`;
+    if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return `${n} позиции`;
+    return `${n} позиций`;
 }
 
-function nearestIndex() {
-    const plaques = [...carousel.querySelectorAll(".plaque")];
-    if (!plaques.length) return 0;
-    const mid = carousel.scrollLeft + carousel.clientWidth / 2;
-    let best = 0;
-    let bestDist = Infinity;
-    plaques.forEach((el, i) => {
-        const center = el.offsetLeft + el.offsetWidth / 2;
-        const dist = Math.abs(center - mid);
-        if (dist < bestDist) {
-            bestDist = dist;
-            best = i;
-        }
-    });
-    return best;
-}
-
-function updatePlaqueTransforms() {
-    const plaques = [...carousel.querySelectorAll(".plaque")];
-    const mid = carousel.scrollLeft + carousel.clientWidth / 2;
-    plaques.forEach((el) => {
-        const center = el.offsetLeft + el.offsetWidth / 2;
-        const dx = (center - mid) / Math.max(el.offsetWidth, 1);
-        const abs = Math.abs(dx);
-        const centered = 1 - Math.min(1, abs);
-        const scale = 0.88 + 0.12 * centered;
-        const alpha = 0.58 + 0.42 * (1 - Math.min(1, abs / 1.35));
-        el.style.transform = `rotateY(${(-dx * 26).toFixed(2)}deg) rotateX(4deg) scale(${scale.toFixed(3)})`;
-        el.style.opacity = alpha.toFixed(3);
-    });
-}
-
-function onCarouselScroll() {
-    if (!ticking) {
-        ticking = true;
-        requestAnimationFrame(() => {
-            updatePlaqueTransforms();
-            ticking = false;
-        });
-    }
-    const idx = nearestIndex();
-    if (idx !== lastPlaqueIndex) {
-        lastPlaqueIndex = idx;
-        const key = warehouse.categories[idx];
-        if (key && key !== selectedKey) {
-            selectedKey = key;
-            haptic("scroll");
-            renderPositions(key, true);
-        }
-    }
-}
-
-function renderPositions(key, animate) {
+function selectCategory(key, hapticKind) {
+    if (!key) return;
+    const changed = key !== selectedKey;
     selectedKey = key;
+    if (hapticKind && (changed || hapticKind === "ok" || hapticKind === "appear")) haptic(hapticKind);
+    renderHero();
+    renderChips();
+    renderInfo();
+    renderPositions(true);
+    const on = chipsEl.querySelector(".chip.on");
+    if (on && changed) on.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" });
+}
+
+function renderHero() {
+    const key = selectedKey;
+    if (!key) return;
+    const next = heroSrc(key);
+    if (heroImg.getAttribute("src") !== next) heroImg.src = next;
+    heroTitle.textContent = displayTitle(key);
+    heroKicker.textContent = heroKickerText(key);
+    const n = (warehouse.positions[key] || []).length;
+    heroCount.textContent = key === DELIVERY ? "как возим" : countLabel(n);
+}
+
+function renderChips() {
+    chipsEl.innerHTML = warehouse.categories.map((key) => {
+        const on = key === selectedKey ? " on" : "";
+        return `<button class="chip${on}" type="button" data-key="${encodeURIComponent(key)}">${escapeHtml(displayTitle(key))}</button>`;
+    }).join("");
+}
+
+function renderInfo() {
+    const info = (warehouse.infos[selectedKey] || "").trim();
+    if (!info) {
+        infoEl.hidden = true;
+        infoEl.textContent = "";
+        return;
+    }
+    infoEl.hidden = false;
+    infoEl.textContent = info;
+}
+
+function renderPositions(animate) {
+    const key = selectedKey;
     const items = warehouse.positions[key] || [];
     const isDelivery = key === DELIVERY;
     if (!items.length) {
@@ -261,32 +233,37 @@ function renderPositions(key, animate) {
         return;
     }
     positionsEl.innerHTML = items.map((pos, i) => {
+        const delay = animate
+            ? `style="animation-delay:${Math.min(i, 14) * 28}ms"`
+            : `style="animation:none;opacity:1;transform:none"`;
+        if (isDelivery) {
+            return `<article class="pos delivery" ${delay}><div class="pos-name">${escapeHtml(pos.name)}</div></article>`;
+        }
         const inStock = pos.quantity > 0;
-        const barClass = isDelivery ? "" : inStock ? "in" : "out";
-        const meta = isDelivery ? "" : `
-            <div class="pos-meta">
-                <span class="pos-price">${formatPrice(pos.price)}</span>
-                ${pos.showQuantity
-                    ? `<span class="pos-qty">${pos.quantity} шт.</span>`
-                    : `<span class="pos-stock ${inStock ? "in" : "out"}">${inStock ? "есть" : "нет"}</span>`}
-            </div>`;
-        const links = (!isDelivery && (pos.avito || pos.ozon)) ? `
+        const stock = pos.showQuantity
+            ? `<span class="pos-qty">${pos.quantity} шт.</span>`
+            : `<span class="pos-stock ${inStock ? "in" : "out"}">${inStock ? "есть" : "нет"}</span>`;
+        const links = (pos.avito || pos.ozon) ? `
             <div class="pos-links">
                 ${pos.avito ? `<a href="${linkHref(pos.avito)}" target="_blank" rel="noopener">Avito</a>` : ""}
                 ${pos.ozon ? `<a href="${linkHref(pos.ozon)}" target="_blank" rel="noopener" class="ozon">Ozon</a>` : ""}
             </div>` : "";
-        const delay = animate ? `style="animation-delay:${Math.min(i, 12) * 45}ms"` : `style="animation:none;opacity:1;transform:none"`;
         return `
             <article class="pos" ${delay}>
-                <div class="pos-bar ${barClass}"></div>
-                <div class="pos-main">
-                    <div class="pos-name">${escapeHtml(pos.name)}</div>
-                    ${meta}
-                </div>
+                <div class="pos-name">${escapeHtml(pos.name)}</div>
+                <div class="pos-price">${formatPrice(pos.price)}</div>
+                <div class="pos-meta">${stock}</div>
                 ${links}
-            </article>
-        `;
+            </article>`;
     }).join("");
+}
+
+function neighbor(step) {
+    const list = warehouse.categories;
+    if (!list.length) return;
+    const i = Math.max(0, list.indexOf(selectedKey));
+    const next = list[(i + step + list.length) % list.length];
+    selectCategory(next, "scroll");
 }
 
 async function loadData(manual) {
@@ -302,10 +279,8 @@ async function loadData(manual) {
         if (!warehouse.categories.includes(selectedKey)) {
             selectedKey = warehouse.categories[0] || null;
         }
-        lastPlaqueIndex = -1;
-        renderCarousel(true);
+        selectCategory(selectedKey, manual ? "ok" : "appear");
         syncLabel.textContent = formatTime(new Date());
-        if (manual) haptic("ok");
     } catch (_) {
         showError("Нет связи со складом");
     } finally {
@@ -313,8 +288,28 @@ async function loadData(manual) {
     }
 }
 
-carousel.addEventListener("scroll", onCarouselScroll, { passive: true });
-window.addEventListener("resize", updatePlaqueTransforms);
+chipsEl.addEventListener("click", (event) => {
+    const btn = event.target.closest(".chip");
+    if (!btn) return;
+    const key = decodeURIComponent(btn.dataset.key || "");
+    selectCategory(key, "scroll");
+});
+
+let touchX = 0;
+let touchY = 0;
+hero.addEventListener("touchstart", (event) => {
+    const t = event.changedTouches[0];
+    touchX = t.clientX;
+    touchY = t.clientY;
+}, { passive: true });
+hero.addEventListener("touchend", (event) => {
+    const t = event.changedTouches[0];
+    const dx = t.clientX - touchX;
+    const dy = t.clientY - touchY;
+    if (Math.abs(dx) < 56 || Math.abs(dx) < Math.abs(dy) * 1.4) return;
+    neighbor(dx < 0 ? 1 : -1);
+}, { passive: true });
+
 refreshBtn.addEventListener("click", () => loadData(true));
 retryBtn.addEventListener("click", () => loadData(true));
 

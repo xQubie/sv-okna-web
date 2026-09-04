@@ -3,7 +3,7 @@
   "short_name": "Склад",
   "display": "standalone",
   "start_url": "/",
-  "background_color": "#000000",
+  "background_color": "#07080A",
   "theme_color": "#000000",
   "icons": [
     {
