@@ -223,8 +223,8 @@ function rowHtml(key, pos) {
         }</span>`;
     const links = (!isDelivery && (pos.avito || pos.ozon)) ? `
         <div class="row-links">
-            ${pos.avito ? `<button type="button" class="market" data-href="${escapeHtml(linkHref(pos.avito))}">Avito</button>` : ""}
-            ${pos.ozon ? `<button type="button" class="market" data-href="${escapeHtml(linkHref(pos.ozon))}">Ozon</button>` : ""}
+            ${pos.avito ? `<button type="button" class="market" data-act="copy" data-href="${escapeHtml(linkHref(pos.avito))}">Avito</button>` : ""}
+            ${pos.ozon ? `<button type="button" class="market" data-act="open" data-href="${escapeHtml(linkHref(pos.ozon))}">Ozon</button>` : ""}
         </div>` : "";
     const side = isDelivery ? "" : `
         <div class="row-side">
@@ -423,6 +423,10 @@ stageEl.addEventListener("click", (event) => {
     const market = event.target.closest(".market");
     if (market) {
         const href = market.getAttribute("data-href") || "";
+        if (market.getAttribute("data-act") === "open") {
+            openExternal(href);
+            return;
+        }
         copyText(href).then((ok) => {
             showToast(ok ? "Ссылка скопирована" : "Не удалось скопировать");
         });
