@@ -16,6 +16,7 @@ const PVC = "Двери ПВХ";
 
 const sectionsEl = document.getElementById("sections");
 const stageEl = document.getElementById("stage");
+const stageTrack = document.getElementById("stageTrack");
 const syncLabel = document.getElementById("syncLabel");
 const errorBanner = document.getElementById("errorBanner");
 const errorText = document.getElementById("errorText");
@@ -33,6 +34,7 @@ let warehouse = { categories: [], titles: {}, infos: {}, positions: {} };
 let selectedKey = null;
 let toastTimer = 0;
 let lastScroll = 0;
+let sliding = false;
 
 function initTelegram() {
     const tg = window.Telegram?.WebApp;
@@ -240,52 +242,120 @@ function closeInfoDialog() {
     infoDlg.classList.add("hidden");
 }
 
-function renderStage(animate) {
-    const key = selectedKey;
-    if (!key) {
-        stageEl.innerHTML = `<div class="empty">Нет разделов</div>`;
-        return;
-    }
+function paneInnerHtml(key) {
     const items = warehouse.positions[key] || [];
     const info = (warehouse.infos[key] || "").trim();
     const body = items.length
         ? items.map((pos) => rowHtml(key, pos)).join("")
         : `<div class="empty">В этом разделе пока пусто</div>`;
-    const infoBtn = info ? `
-        <button type="button" class="info-btn" aria-label="Информация">i</button>` : "";
-    stageEl.innerHTML = `
+    const infoBtn = info
+        ? `<button type="button" class="info-btn" aria-label="Информация">i</button>`
+        : "";
+    return `
         <div class="cat-head">
             <h1 class="cat-title">${escapeHtml(displayTitle(key))}</h1>
             ${infoBtn}
         </div>
-        ${body}
-    `;
-    stageEl.scrollTop = 0;
+        ${body}`;
+}
+
+function onPaneScroll(event) {
+    const y = event.currentTarget.scrollTop;
+    if (y > lastScroll + 8 && y > 40) document.body.classList.add("chrome-away");
+    else if (y < lastScroll - 8) document.body.classList.remove("chrome-away");
+    lastScroll = y;
+}
+
+function createPane(key) {
+    const pane = document.createElement("div");
+    pane.className = "pane";
+    pane.dataset.key = key;
+    pane.innerHTML = paneInnerHtml(key);
+    pane.addEventListener("scroll", onPaneScroll, { passive: true });
+    return pane;
+}
+
+function showPane(key) {
+    if (!key) {
+        stageTrack.replaceChildren();
+        return;
+    }
+    stageTrack.replaceChildren(createPane(key));
+    stageTrack.style.transition = "none";
+    stageTrack.style.transform = "translate3d(0,0,0)";
     document.body.classList.remove("chrome-away");
     lastScroll = 0;
-    if (animate) {
-        stageEl.classList.remove("swap");
-        void stageEl.offsetWidth;
-        stageEl.classList.add("swap");
+}
+
+function slideTo(key, dir) {
+    const current = stageTrack.querySelector(".pane");
+    if (!current || sliding) {
+        selectedKey = key;
+        renderSections();
+        showPane(key);
+        return;
     }
+    sliding = true;
+    selectedKey = key;
+    renderSections();
+    const incoming = createPane(key);
+    const width = stageEl.clientWidth || window.innerWidth;
+    stageTrack.style.transition = "none";
+    if (dir > 0) {
+        stageTrack.appendChild(incoming);
+        stageTrack.style.transform = "translate3d(0,0,0)";
+    } else {
+        stageTrack.insertBefore(incoming, current);
+        stageTrack.style.transform = `translate3d(${-width}px,0,0)`;
+    }
+    requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+            stageTrack.style.transition = "transform 340ms cubic-bezier(0.22, 1, 0.36, 1)";
+            stageTrack.style.transform = dir > 0
+                ? `translate3d(${-width}px,0,0)`
+                : "translate3d(0,0,0)";
+        });
+    });
+    let done = false;
+    const finish = (event) => {
+        if (event && event.target !== stageTrack) return;
+        if (done) return;
+        done = true;
+        stageTrack.removeEventListener("transitionend", finish);
+        current.remove();
+        stageTrack.style.transition = "none";
+        stageTrack.style.transform = "translate3d(0,0,0)";
+        incoming.scrollTop = 0;
+        document.body.classList.remove("chrome-away");
+        lastScroll = 0;
+        sliding = false;
+    };
+    stageTrack.addEventListener("transitionend", finish);
+    window.setTimeout(finish, 420);
 }
 
 function selectCategory(key, animate) {
-    if (!key || key === selectedKey && animate) {
+    if (!key || key === selectedKey) {
         renderSections();
+        return;
+    }
+    const from = warehouse.categories.indexOf(selectedKey);
+    const to = warehouse.categories.indexOf(key);
+    if (animate && from >= 0 && to >= 0 && stageTrack.querySelector(".pane")) {
+        slideTo(key, to > from ? 1 : -1);
         return;
     }
     selectedKey = key;
     renderSections();
-    renderStage(animate);
+    showPane(key);
 }
 
-function render(animate) {
+function render() {
     if (!warehouse.categories.includes(selectedKey)) {
         selectedKey = warehouse.categories[0] || null;
     }
     renderSections();
-    renderStage(animate);
+    showPane(selectedKey);
 }
 
 async function loadData(manual) {
@@ -303,7 +373,7 @@ async function loadData(manual) {
         selectedKey = (keep && warehouse.categories.includes(keep))
             ? keep
             : (warehouse.categories[0] || null);
-        render(true);
+        render();
         syncLabel.textContent = formatTime(new Date());
         if (manual) showToast("Информация обновлена");
     } catch (_) {
@@ -348,7 +418,7 @@ function bindStageSwipe() {
     const endSwipe = (event) => {
         if (!tracking) return;
         tracking = false;
-        if (!infoDlg.classList.contains("hidden")) return;
+        if (sliding || !infoDlg.classList.contains("hidden")) return;
         const dx = event.clientX - startX;
         const dy = event.clientY - startY;
         if (Math.abs(dx) < 52) return;
@@ -364,13 +434,6 @@ function bindStageSwipe() {
 }
 
 bindStageSwipe();
-
-stageEl.addEventListener("scroll", () => {
-    const y = stageEl.scrollTop;
-    if (y > lastScroll + 8 && y > 40) document.body.classList.add("chrome-away");
-    else if (y < lastScroll - 8) document.body.classList.remove("chrome-away");
-    lastScroll = y;
-}, { passive: true });
 
 refreshBtn.addEventListener("click", () => loadData(true));
 retryBtn.addEventListener("click", () => loadData(true));
