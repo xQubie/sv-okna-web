@@ -14,7 +14,7 @@
     <link rel="apple-touch-icon" href="img/apple-touch-icon.png">
     <link rel="icon" type="image/png" href="img/favicon.png">
     <link rel="manifest" href="manifest.webmanifest">
-    <link rel="stylesheet" href="css/app.css?v=13">
+    <link rel="stylesheet" href="css/app.css?v=14">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
 <body>
@@ -59,7 +59,15 @@
         <div class="sections" id="sections"></div>
     </nav>
     <div id="toast" class="toast hidden">Информация обновлена</div>
+    <div id="infoDlg" class="dlg hidden" role="dialog" aria-modal="true" aria-labelledby="infoDlgTitle">
+        <button type="button" class="dlg-scrim" id="infoDlgScrim" aria-label="Закрыть"></button>
+        <div class="dlg-card">
+            <h2 class="dlg-title" id="infoDlgTitle"></h2>
+            <p class="dlg-text" id="infoDlgText"></p>
+            <button type="button" class="dlg-ok" id="infoDlgOk">Закрыть</button>
+        </div>
+    </div>
 
-    <script src="js/app.js?v=13"></script>
+    <script src="js/app.js?v=14"></script>
 </body>
 </html>

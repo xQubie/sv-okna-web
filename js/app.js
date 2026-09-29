@@ -23,6 +23,11 @@ const refreshBtn = document.getElementById("refreshBtn");
 const retryBtn = document.getElementById("retryBtn");
 const webBtn = document.getElementById("webBtn");
 const toastEl = document.getElementById("toast");
+const infoDlg = document.getElementById("infoDlg");
+const infoDlgTitle = document.getElementById("infoDlgTitle");
+const infoDlgText = document.getElementById("infoDlgText");
+const infoDlgOk = document.getElementById("infoDlgOk");
+const infoDlgScrim = document.getElementById("infoDlgScrim");
 
 let warehouse = { categories: [], titles: {}, infos: {}, positions: {} };
 let selectedKey = null;
@@ -221,6 +226,20 @@ function renderSections() {
     }
 }
 
+function openInfoDialog() {
+    const key = selectedKey;
+    if (!key) return;
+    const info = warehouse.infos[key] || "";
+    if (!info.trim()) return;
+    infoDlgTitle.textContent = displayTitle(key);
+    infoDlgText.textContent = info;
+    infoDlg.classList.remove("hidden");
+}
+
+function closeInfoDialog() {
+    infoDlg.classList.add("hidden");
+}
+
 function renderStage(animate) {
     const key = selectedKey;
     if (!key) {
@@ -228,13 +247,17 @@ function renderStage(animate) {
         return;
     }
     const items = warehouse.positions[key] || [];
-    const info = warehouse.infos[key] || "";
+    const info = (warehouse.infos[key] || "").trim();
     const body = items.length
         ? items.map((pos) => rowHtml(key, pos)).join("")
         : `<div class="empty">В этом разделе пока пусто</div>`;
+    const infoBtn = info ? `
+        <button type="button" class="info-btn" aria-label="Информация">i</button>` : "";
     stageEl.innerHTML = `
-        <h1 class="cat-title">${escapeHtml(displayTitle(key))}</h1>
-        ${info ? `<p class="cat-info">${escapeHtml(info)}</p>` : `<div style="height:12px"></div>`}
+        <div class="cat-head">
+            <h1 class="cat-title">${escapeHtml(displayTitle(key))}</h1>
+            ${infoBtn}
+        </div>
         ${body}
     `;
     stageEl.scrollTop = 0;
@@ -298,11 +321,17 @@ sectionsEl.addEventListener("click", (event) => {
 });
 
 stageEl.addEventListener("click", (event) => {
+    if (event.target.closest(".info-btn")) {
+        openInfoDialog();
+        return;
+    }
     const link = event.target.closest("a");
     if (!link) return;
     event.preventDefault();
     openExternal(link.getAttribute("href"));
 });
+infoDlgOk.addEventListener("click", closeInfoDialog);
+infoDlgScrim.addEventListener("click", closeInfoDialog);
 
 stageEl.addEventListener("scroll", () => {
     const y = stageEl.scrollTop;
