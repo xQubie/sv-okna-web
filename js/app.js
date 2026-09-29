@@ -147,17 +147,19 @@ function openExternal(url) {
 }
 
 function applySafeArea() {
-    const probe = document.createElement("div");
-    probe.style.cssText = "position:absolute;visibility:hidden;pointer-events:none;height:env(safe-area-inset-bottom,0px)";
-    document.body.appendChild(probe);
-    const envH = probe.getBoundingClientRect().height;
-    probe.remove();
-    const tg = Number(window.Telegram?.WebApp?.safeAreaInset?.bottom || 0);
     const standalone = Boolean(
         window.navigator.standalone
         || window.matchMedia("(display-mode: standalone)").matches,
     );
-    document.documentElement.style.setProperty("--safe-bottom", `${Math.max(envH, tg, standalone ? 34 : 0)}px`);
+    const tg = Number(window.Telegram?.WebApp?.safeAreaInset?.bottom || 0);
+    const env = getComputedStyle(document.documentElement)
+        .getPropertyValue("--safe-bottom")
+        .trim();
+    const envPx = Number.parseFloat(env) || 0;
+    const px = Math.max(envPx, tg, standalone ? 34 : 0);
+    if (px > 0) {
+        document.documentElement.style.setProperty("--safe-bottom", `${px}px`);
+    }
 }
 
 function showError(message) {
