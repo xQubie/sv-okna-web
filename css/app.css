@@ -89,6 +89,12 @@ body {
     transform: scale(1.06);
 }
 
+.bg-img.baked {
+    inset: 0;
+    filter: none;
+    transform: none;
+}
+
 .scrim {
     inset: 0;
     z-index: 1;
@@ -201,6 +207,11 @@ body {
     scrollbar-width: none;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior-x: contain;
+    contain: layout;
+}
+
+.pages.dragging {
+    scroll-snap-type: none;
 }
 
 .pages::-webkit-scrollbar { display: none; }
@@ -215,8 +226,8 @@ body {
     overflow-x: hidden;
     overflow-y: auto;
     padding: 2px 14px 24px;
-    -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
+    contain: layout paint;
 }
 
 .page-title {
@@ -324,26 +335,25 @@ body {
 .dock.collapsed .plaques-track { height: 0; }
 
 .plaques {
+    height: var(--plaque-h);
+    overflow: hidden;
+    touch-action: none;
+}
+
+.plaques-strip {
     display: flex;
     gap: var(--plaque-gap);
     height: var(--plaque-h);
-    overflow-x: auto;
-    overflow-y: hidden;
-    scroll-snap-type: x mandatory;
-    scrollbar-width: none;
-    -webkit-overflow-scrolling: touch;
     padding: 0 var(--side-pad, 18vw);
-    touch-action: pan-x;
-    overscroll-behavior-x: contain;
+    will-change: transform;
+    transform: translate3d(0, 0, 0);
+    backface-visibility: hidden;
 }
-
-.plaques::-webkit-scrollbar { display: none; }
 
 .plaque {
     flex: 0 0 var(--plaque-w, 64vw);
     width: var(--plaque-w, 64vw);
     height: var(--plaque-h);
-    scroll-snap-align: center;
     display: flex;
     align-items: center;
     justify-content: center;

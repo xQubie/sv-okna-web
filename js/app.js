@@ -20,6 +20,7 @@ const SWIPE_THRESHOLD = 28;
 
 const pagesEl = document.getElementById("pages");
 const plaquesEl = document.getElementById("plaques");
+const plaquesStrip = document.getElementById("plaquesStrip");
 const dockEl = document.getElementById("dock");
 const dockHandle = document.getElementById("dockHandle");
 const syncLabel = document.getElementById("syncLabel");
@@ -29,14 +30,19 @@ const refreshBtn = document.getElementById("refreshBtn");
 const retryBtn = document.getElementById("retryBtn");
 const webBtn = document.getElementById("webBtn");
 const toastEl = document.getElementById("toast");
+const bgImg = document.getElementById("bgImg");
 
 let warehouse = { categories: [], titles: {}, infos: {}, positions: {} };
 let selectedKey = null;
 let expanded = localStorage.getItem(DOCK_KEY) !== "0";
-let syncing = null;
-let clearSyncTimer = 0;
 let toastTimer = 0;
 let lastActiveIndex = -1;
+let pageW = 1;
+let plaqueStepPx = 1;
+let followRaf = 0;
+let settleTimer = 0;
+let draggingPlaques = false;
+let bakedUrl = "";
 
 function initTelegram() {
     const tg = window.Telegram?.WebApp;
@@ -63,9 +69,6 @@ function haptic(kind) {
             else hf.impactOccurred("light");
             return;
         }
-    } catch (_) { /* ignore */ }
-    try {
-        if (navigator.vibrate) navigator.vibrate(kind === "scroll" ? 10 : 16);
     } catch (_) { /* ignore */ }
 }
 
@@ -198,38 +201,41 @@ function showToast(text) {
 
 function applyDock() {
     dockEl.classList.toggle("collapsed", !expanded);
-    plaquesEl.style.pointerEvents = expanded ? "auto" : "none";
-}
-
-function setExpanded(next) {
-    if (next === expanded) return;
-    expanded = next;
-    localStorage.setItem(DOCK_KEY, expanded ? "1" : "0");
-    applyDock();
-    haptic("light");
-    if (expanded) {
-        requestAnimationFrame(() => {
-            const idx = Math.max(0, warehouse.categories.indexOf(selectedKey));
-            plaquesEl.scrollLeft = idx * plaqueStep();
-        });
-    }
-}
-
-function updatePlaqueMetrics() {
-    const width = plaquesEl.clientWidth || window.innerWidth;
-    const plaqueW = width * PLAQUE_FRAC;
-    const sidePad = (width - plaqueW) / 2;
-    plaquesEl.style.setProperty("--plaque-w", `${plaqueW}px`);
-    plaquesEl.style.setProperty("--side-pad", `${sidePad}px`);
-}
-
-function plaqueStep() {
-    const width = plaquesEl.clientWidth || window.innerWidth;
-    return width * PLAQUE_FRAC + PLAQUE_GAP;
 }
 
 function pageCount() {
     return Math.max(warehouse.categories.length, 1);
+}
+
+function pageFloatNow() {
+    return pagesEl.scrollLeft / (pageW || 1);
+}
+
+function cacheMetrics() {
+    pageW = pagesEl.clientWidth || window.innerWidth || 1;
+    const dockW = plaquesEl.clientWidth || window.innerWidth || 1;
+    const plaqueW = dockW * PLAQUE_FRAC;
+    const sidePad = (dockW - plaqueW) / 2;
+    plaqueStepPx = plaqueW + PLAQUE_GAP;
+    plaquesEl.style.setProperty("--plaque-w", `${plaqueW}px`);
+    plaquesEl.style.setProperty("--side-pad", `${sidePad}px`);
+}
+
+function applyPlaqueTransform(pageFloat) {
+    if (!expanded) return;
+    const max = Math.max(pageCount() - 1, 0);
+    const clamped = Math.max(0, Math.min(pageFloat, max));
+    plaquesStrip.style.transform = `translate3d(${-(clamped * plaqueStepPx)}px,0,0)`;
+}
+
+function followPlaques() {
+    followRaf = 0;
+    applyPlaqueTransform(pageFloatNow());
+}
+
+function scheduleFollow() {
+    if (!expanded || draggingPlaques || followRaf) return;
+    followRaf = requestAnimationFrame(followPlaques);
 }
 
 function setActivePlaque(index, withHaptic) {
@@ -240,57 +246,81 @@ function setActivePlaque(index, withHaptic) {
         return;
     }
     lastActiveIndex = next;
-    const plaques = plaquesEl.querySelectorAll(".plaque");
-    plaques.forEach((el, i) => el.classList.toggle("is-active", i === next));
+    const plaques = plaquesStrip.querySelectorAll(".plaque");
+    for (let i = 0; i < plaques.length; i += 1) {
+        plaques[i].classList.toggle("is-active", i === next);
+    }
     const key = warehouse.categories[next];
     if (key) selectedKey = key;
     if (withHaptic) haptic("scroll");
 }
 
-function clearSyncSoon() {
-    window.clearTimeout(clearSyncTimer);
-    clearSyncTimer = window.setTimeout(() => {
-        plaquesEl.style.scrollSnapType = "";
-        pagesEl.style.scrollSnapType = "";
-        syncing = null;
-    }, 48);
+function onPagesSettled() {
+    const idx = Math.round(pageFloatNow());
+    setActivePlaque(idx, true);
+    applyPlaqueTransform(idx);
 }
 
 function onPagesScroll() {
-    if (syncing === "plaques" || syncing === "jump") return;
-    syncing = "pages";
-    const w = pagesEl.clientWidth || 1;
-    const pageFloat = pagesEl.scrollLeft / w;
-    if (expanded) {
-        plaquesEl.style.scrollSnapType = "none";
-        plaquesEl.scrollLeft = pageFloat * plaqueStep();
-    }
-    setActivePlaque(Math.round(pageFloat), true);
-    clearSyncSoon();
-}
-
-function onPlaquesScroll() {
-    if (!expanded) return;
-    if (syncing === "pages" || syncing === "jump") return;
-    syncing = "plaques";
-    pagesEl.style.scrollSnapType = "none";
-    const step = plaqueStep() || 1;
-    const pageFloat = plaquesEl.scrollLeft / step;
-    pagesEl.scrollLeft = pageFloat * (pagesEl.clientWidth || 1);
-    setActivePlaque(Math.round(pageFloat), true);
-    clearSyncSoon();
+    scheduleFollow();
+    window.clearTimeout(settleTimer);
+    settleTimer = window.setTimeout(onPagesSettled, 90);
 }
 
 function goToIndex(index, behavior) {
     const i = Math.max(0, Math.min(index, pageCount() - 1));
-    const pageW = pagesEl.clientWidth || 1;
-    syncing = "jump";
-    pagesEl.scrollTo({ left: i * pageW, behavior });
-    plaquesEl.scrollTo({ left: i * plaqueStep(), behavior });
+    pagesEl.scrollTo({ left: i * pageW, behavior: behavior || "auto" });
+    applyPlaqueTransform(i);
     setActivePlaque(i, false);
-    window.setTimeout(() => {
-        syncing = null;
-    }, behavior === "smooth" ? 380 : 32);
+}
+
+function setExpanded(next) {
+    if (next === expanded) return;
+    expanded = next;
+    localStorage.setItem(DOCK_KEY, expanded ? "1" : "0");
+    applyDock();
+    haptic("light");
+    if (expanded) {
+        requestAnimationFrame(() => {
+            cacheMetrics();
+            applyPlaqueTransform(pageFloatNow());
+        });
+    }
+}
+
+function bakeWallpaper() {
+    const img = new Image();
+    img.decoding = "async";
+    img.src = "img/bg_windows.jpg";
+    img.onload = () => {
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const cw = Math.max(1, Math.ceil(window.innerWidth * dpr));
+        const ch = Math.max(1, Math.ceil(window.innerHeight * dpr));
+        const canvas = document.createElement("canvas");
+        canvas.width = cw;
+        canvas.height = ch;
+        const ctx = canvas.getContext("2d", { alpha: false });
+        if (!ctx) return;
+        ctx.filter = `blur(${Math.round(16 * dpr)}px)`;
+        const scale = Math.max(cw / img.width, ch / img.height) * 1.14;
+        const dw = img.width * scale;
+        const dh = img.height * scale;
+        ctx.drawImage(img, (cw - dw) / 2, (ch - dh) / 2, dw, dh);
+        canvas.toBlob((blob) => {
+            if (!blob) return;
+            if (bakedUrl) URL.revokeObjectURL(bakedUrl);
+            bakedUrl = URL.createObjectURL(blob);
+            bgImg.style.backgroundImage = `url("${bakedUrl}")`;
+            bgImg.classList.add("baked");
+        }, "image/jpeg", 0.72);
+    };
+}
+
+function warmupPages() {
+    const nodes = pagesEl.querySelectorAll(".page");
+    for (let i = 0; i < nodes.length; i += 1) {
+        void nodes[i].scrollHeight;
+    }
 }
 
 function positionHtml(key, pos) {
@@ -351,11 +381,12 @@ function render() {
     pagesEl.innerHTML = keys.length
         ? keys.map((key) => pageHtml(key)).join("")
         : `<section class="page"><div class="empty">Нет разделов</div></section>`;
-    plaquesEl.innerHTML = keys.map((key, i) => plaqueHtml(key, i)).join("");
+    plaquesStrip.innerHTML = keys.map((key, i) => plaqueHtml(key, i)).join("");
     const start = Math.max(0, keys.indexOf(selectedKey));
     selectedKey = keys[start] || null;
     requestAnimationFrame(() => {
-        updatePlaqueMetrics();
+        cacheMetrics();
+        warmupPages();
         goToIndex(start, "auto");
     });
 }
@@ -395,42 +426,90 @@ function bindDockSwipe() {
     let dragged = 0;
     let tracking = false;
 
-    const onStart = (y) => {
+    dockHandle.addEventListener("pointerdown", (event) => {
+        dockHandle.setPointerCapture(event.pointerId);
         tracking = true;
-        startY = y;
+        startY = event.clientY;
         dragged = 0;
-    };
-    const onMove = (y, event) => {
+    });
+    dockHandle.addEventListener("pointermove", (event) => {
         if (!tracking) return;
-        dragged = y - startY;
+        dragged = event.clientY - startY;
         event.preventDefault();
-    };
+    });
     const onEnd = () => {
         if (!tracking) return;
         tracking = false;
         if (expanded && dragged > SWIPE_THRESHOLD) setExpanded(false);
         else if (!expanded && dragged < -SWIPE_THRESHOLD) setExpanded(true);
     };
-
-    dockHandle.addEventListener("pointerdown", (event) => {
-        dockHandle.setPointerCapture(event.pointerId);
-        onStart(event.clientY);
-    });
-    dockHandle.addEventListener("pointermove", (event) => onMove(event.clientY, event));
     dockHandle.addEventListener("pointerup", onEnd);
     dockHandle.addEventListener("pointercancel", onEnd);
 }
 
+function bindPlaqueDrag() {
+    let pointerId = null;
+    let startX = 0;
+    let startFloat = 0;
+    let moved = 0;
+    let pendingFloat = 0;
+    let dragRaf = 0;
+
+    const flushDrag = () => {
+        dragRaf = 0;
+        const max = Math.max(pageCount() - 1, 0);
+        const clamped = Math.max(0, Math.min(pendingFloat, max));
+        pagesEl.scrollLeft = clamped * pageW;
+        applyPlaqueTransform(clamped);
+    };
+
+    const onMove = (event) => {
+        if (pointerId == null || event.pointerId !== pointerId) return;
+        const dx = event.clientX - startX;
+        moved = Math.max(moved, Math.abs(dx));
+        pendingFloat = startFloat - dx / (plaqueStepPx || 1);
+        if (!dragRaf) dragRaf = requestAnimationFrame(flushDrag);
+        event.preventDefault();
+    };
+
+    const onEnd = (event) => {
+        if (pointerId == null || event.pointerId !== pointerId) return;
+        pointerId = null;
+        draggingPlaques = false;
+        pagesEl.classList.remove("dragging");
+        if (dragRaf) {
+            cancelAnimationFrame(dragRaf);
+            flushDrag();
+        }
+        plaquesEl.releasePointerCapture?.(event.pointerId);
+        const idx = Math.round(pageFloatNow());
+        if (moved < 8) {
+            const plaque = event.target.closest?.(".plaque");
+            const tapped = plaque ? Number(plaque.dataset.index) : idx;
+            goToIndex(Number.isFinite(tapped) ? tapped : idx, "smooth");
+        } else {
+            goToIndex(idx, "smooth");
+        }
+    };
+
+    plaquesEl.addEventListener("pointerdown", (event) => {
+        if (!expanded || event.button) return;
+        pointerId = event.pointerId;
+        draggingPlaques = true;
+        moved = 0;
+        startX = event.clientX;
+        startFloat = pageFloatNow();
+        pagesEl.classList.add("dragging");
+        plaquesEl.setPointerCapture(event.pointerId);
+    });
+    plaquesEl.addEventListener("pointermove", onMove);
+    plaquesEl.addEventListener("pointerup", onEnd);
+    plaquesEl.addEventListener("pointercancel", onEnd);
+}
+
 pagesEl.addEventListener("scroll", onPagesScroll, { passive: true });
-plaquesEl.addEventListener("scroll", onPlaquesScroll, { passive: true });
-plaquesEl.addEventListener("click", (event) => {
-    const plaque = event.target.closest(".plaque");
-    if (!plaque) return;
-    const index = Number(plaque.dataset.index);
-    if (Number.isFinite(index)) goToIndex(index, "smooth");
-});
 window.addEventListener("resize", () => {
-    updatePlaqueMetrics();
+    cacheMetrics();
     const idx = Math.max(0, warehouse.categories.indexOf(selectedKey));
     goToIndex(idx, "auto");
 });
@@ -439,7 +518,9 @@ retryBtn.addEventListener("click", () => loadData(true));
 webBtn.href = SITE_URL;
 
 bindDockSwipe();
+bindPlaqueDrag();
 applyDock();
 initTelegram();
 applySafeArea();
+bakeWallpaper();
 loadData(false);
