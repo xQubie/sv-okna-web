@@ -168,8 +168,8 @@ body.chrome-away .chrome {
     backdrop-filter: saturate(1.7) blur(32px);
     border-top: 1px solid var(--glass-edge);
     box-shadow: var(--glass-hi);
-    padding-top: max(10px, env(safe-area-inset-bottom, 0px));
-    padding-bottom: max(10px, env(safe-area-inset-bottom, 0px));
+    padding-top: 6px;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 .sections {
@@ -188,10 +188,10 @@ body.chrome-away .chrome {
     flex: 0 0 auto;
     border: 1px solid var(--glass-edge);
     border-radius: 999px;
-    padding: 8px 12px;
+    padding: 7px 12px;
     font-size: 13px;
     font-weight: 500;
-    line-height: 18px;
+    line-height: 16px;
     background: var(--glass);
     color: var(--ink);
     -webkit-backdrop-filter: blur(16px) saturate(1.4);
@@ -243,6 +243,7 @@ body.chrome-away .chrome {
     padding: 12px 16px 20px;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
+    touch-action: pan-y;
 }
 
 .stage.swap {

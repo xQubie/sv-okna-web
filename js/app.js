@@ -333,6 +333,38 @@ stageEl.addEventListener("click", (event) => {
 infoDlgOk.addEventListener("click", closeInfoDialog);
 infoDlgScrim.addEventListener("click", closeInfoDialog);
 
+function bindStageSwipe() {
+    let startX = 0;
+    let startY = 0;
+    let tracking = false;
+
+    stageEl.addEventListener("pointerdown", (event) => {
+        if (event.pointerType === "mouse" && event.button !== 0) return;
+        if (event.target.closest("a, .info-btn, button")) return;
+        tracking = true;
+        startX = event.clientX;
+        startY = event.clientY;
+    });
+    const endSwipe = (event) => {
+        if (!tracking) return;
+        tracking = false;
+        if (!infoDlg.classList.contains("hidden")) return;
+        const dx = event.clientX - startX;
+        const dy = event.clientY - startY;
+        if (Math.abs(dx) < 52) return;
+        if (Math.abs(dx) < Math.abs(dy) * 1.25) return;
+        const keys = warehouse.categories;
+        const index = keys.indexOf(selectedKey);
+        if (index < 0) return;
+        if (dx < 0 && index < keys.length - 1) selectCategory(keys[index + 1], true);
+        else if (dx > 0 && index > 0) selectCategory(keys[index - 1], true);
+    };
+    stageEl.addEventListener("pointerup", endSwipe);
+    stageEl.addEventListener("pointercancel", () => { tracking = false; });
+}
+
+bindStageSwipe();
+
 stageEl.addEventListener("scroll", () => {
     const y = stageEl.scrollTop;
     if (y > lastScroll + 8 && y > 40) document.body.classList.add("chrome-away");
