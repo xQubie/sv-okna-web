@@ -19,6 +19,7 @@ const PLAQUE_GAP = 16;
 const SWIPE_THRESHOLD = 28;
 
 const pagesEl = document.getElementById("pages");
+const pagesStrip = document.getElementById("pagesStrip");
 const plaquesEl = document.getElementById("plaques");
 const plaquesStrip = document.getElementById("plaquesStrip");
 const dockEl = document.getElementById("dock");
@@ -30,7 +31,6 @@ const refreshBtn = document.getElementById("refreshBtn");
 const retryBtn = document.getElementById("retryBtn");
 const webBtn = document.getElementById("webBtn");
 const toastEl = document.getElementById("toast");
-const bgImg = document.getElementById("bgImg");
 
 let warehouse = { categories: [], titles: {}, infos: {}, positions: {} };
 let selectedKey = null;
@@ -42,7 +42,6 @@ let plaqueStepPx = 1;
 let followRaf = 0;
 let settleTimer = 0;
 let draggingPlaques = false;
-let bakedUrl = "";
 
 function initTelegram() {
     const tg = window.Telegram?.WebApp;
@@ -67,7 +66,6 @@ function haptic(kind) {
             if (kind === "scroll") hf.selectionChanged();
             else if (kind === "ok") hf.notificationOccurred("success");
             else hf.impactOccurred("light");
-            return;
         }
     } catch (_) { /* ignore */ }
 }
@@ -164,6 +162,19 @@ function escapeHtml(text) {
         .replaceAll('"', "&quot;");
 }
 
+function openExternal(url) {
+    const href = linkHref(url);
+    if (!href) return;
+    try {
+        if (window.Telegram?.WebApp?.openLink) {
+            window.Telegram.WebApp.openLink(href);
+            return;
+        }
+    } catch (_) { /* ignore */ }
+    const opened = window.open(href, "_blank", "noopener,noreferrer");
+    if (!opened) window.location.href = href;
+}
+
 function applySafeArea() {
     const probe = document.createElement("div");
     probe.style.cssText = "position:absolute;visibility:hidden;pointer-events:none;height:env(safe-area-inset-bottom,0px)";
@@ -217,6 +228,7 @@ function cacheMetrics() {
     const plaqueW = dockW * PLAQUE_FRAC;
     const sidePad = (dockW - plaqueW) / 2;
     plaqueStepPx = plaqueW + PLAQUE_GAP;
+    pagesEl.style.setProperty("--page-w", `${pageW}px`);
     plaquesEl.style.setProperty("--plaque-w", `${plaqueW}px`);
     plaquesEl.style.setProperty("--side-pad", `${sidePad}px`);
 }
@@ -269,8 +281,9 @@ function onPagesScroll() {
 
 function goToIndex(index, behavior) {
     const i = Math.max(0, Math.min(index, pageCount() - 1));
-    pagesEl.scrollTo({ left: i * pageW, behavior: behavior || "auto" });
-    applyPlaqueTransform(i);
+    const smooth = behavior === "smooth";
+    pagesEl.scrollTo({ left: i * pageW, behavior: smooth ? "smooth" : "auto" });
+    if (!smooth) applyPlaqueTransform(i);
     setActivePlaque(i, false);
 }
 
@@ -288,36 +301,8 @@ function setExpanded(next) {
     }
 }
 
-function bakeWallpaper() {
-    const img = new Image();
-    img.decoding = "async";
-    img.src = "img/bg_windows.jpg";
-    img.onload = () => {
-        const dpr = Math.min(window.devicePixelRatio || 1, 2);
-        const cw = Math.max(1, Math.ceil(window.innerWidth * dpr));
-        const ch = Math.max(1, Math.ceil(window.innerHeight * dpr));
-        const canvas = document.createElement("canvas");
-        canvas.width = cw;
-        canvas.height = ch;
-        const ctx = canvas.getContext("2d", { alpha: false });
-        if (!ctx) return;
-        ctx.filter = `blur(${Math.round(16 * dpr)}px)`;
-        const scale = Math.max(cw / img.width, ch / img.height) * 1.14;
-        const dw = img.width * scale;
-        const dh = img.height * scale;
-        ctx.drawImage(img, (cw - dw) / 2, (ch - dh) / 2, dw, dh);
-        canvas.toBlob((blob) => {
-            if (!blob) return;
-            if (bakedUrl) URL.revokeObjectURL(bakedUrl);
-            bakedUrl = URL.createObjectURL(blob);
-            bgImg.style.backgroundImage = `url("${bakedUrl}")`;
-            bgImg.classList.add("baked");
-        }, "image/jpeg", 0.72);
-    };
-}
-
 function warmupPages() {
-    const nodes = pagesEl.querySelectorAll(".page");
+    const nodes = pagesStrip.querySelectorAll(".page");
     for (let i = 0; i < nodes.length; i += 1) {
         void nodes[i].scrollHeight;
     }
@@ -378,7 +363,7 @@ function plaqueHtml(key, index) {
 function render() {
     const keys = warehouse.categories;
     lastActiveIndex = -1;
-    pagesEl.innerHTML = keys.length
+    pagesStrip.innerHTML = keys.length
         ? keys.map((key) => pageHtml(key)).join("")
         : `<section class="page"><div class="empty">Нет разделов</div></section>`;
     plaquesStrip.innerHTML = keys.map((key, i) => plaqueHtml(key, i)).join("");
@@ -450,56 +435,83 @@ function bindDockSwipe() {
 function bindPlaqueDrag() {
     let pointerId = null;
     let startX = 0;
+    let startTime = 0;
     let startFloat = 0;
     let moved = 0;
     let pendingFloat = 0;
+    let lastX = 0;
+    let lastT = 0;
+    let vx = 0;
     let dragRaf = 0;
 
-    const flushDrag = () => {
+    const maxIndex = () => Math.max(pageCount() - 1, 0);
+
+    const applyDragVisual = () => {
         dragRaf = 0;
-        const max = Math.max(pageCount() - 1, 0);
-        const clamped = Math.max(0, Math.min(pendingFloat, max));
-        pagesEl.scrollLeft = clamped * pageW;
+        const clamped = Math.max(0, Math.min(pendingFloat, maxIndex()));
         applyPlaqueTransform(clamped);
+        pagesStrip.style.transform = `translate3d(${(startFloat - clamped) * pageW}px,0,0)`;
     };
 
     const onMove = (event) => {
         if (pointerId == null || event.pointerId !== pointerId) return;
+        const now = performance.now();
+        const dt = Math.max(now - lastT, 1);
+        vx = (event.clientX - lastX) / dt;
+        lastX = event.clientX;
+        lastT = now;
         const dx = event.clientX - startX;
         moved = Math.max(moved, Math.abs(dx));
         pendingFloat = startFloat - dx / (plaqueStepPx || 1);
-        if (!dragRaf) dragRaf = requestAnimationFrame(flushDrag);
+        if (!dragRaf) dragRaf = requestAnimationFrame(applyDragVisual);
         event.preventDefault();
     };
 
     const onEnd = (event) => {
         if (pointerId == null || event.pointerId !== pointerId) return;
         pointerId = null;
-        draggingPlaques = false;
-        pagesEl.classList.remove("dragging");
         if (dragRaf) {
             cancelAnimationFrame(dragRaf);
-            flushDrag();
+            applyDragVisual();
         }
-        plaquesEl.releasePointerCapture?.(event.pointerId);
-        const idx = Math.round(pageFloatNow());
+        const clamped = Math.max(0, Math.min(pendingFloat, maxIndex()));
+        pagesStrip.style.transform = "none";
+        draggingPlaques = false;
+        try { plaquesEl.releasePointerCapture(event.pointerId); } catch (_) { /* ignore */ }
+
+        const startIndex = Math.round(startFloat);
+        let target = startIndex;
         if (moved < 8) {
             const plaque = event.target.closest?.(".plaque");
-            const tapped = plaque ? Number(plaque.dataset.index) : idx;
-            goToIndex(Number.isFinite(tapped) ? tapped : idx, "smooth");
+            const tapped = plaque ? Number(plaque.dataset.index) : startIndex;
+            target = Number.isFinite(tapped) ? tapped : startIndex;
         } else {
-            goToIndex(idx, "smooth");
+            const dx = lastX - startX;
+            const overallV = dx / Math.max(performance.now() - startTime, 1);
+            const speed = Math.abs(vx) > Math.abs(overallV) ? vx : overallV;
+            const flick = Math.abs(speed) > 0.32;
+            const far = Math.abs(dx) > Math.min(48, pageW * 0.14);
+            if (flick || far) {
+                target = dx < 0 ? startIndex + 1 : startIndex - 1;
+            }
         }
+        pagesEl.scrollLeft = clamped * pageW;
+        goToIndex(target, "smooth");
     };
 
     plaquesEl.addEventListener("pointerdown", (event) => {
-        if (!expanded || event.button) return;
+        if (!expanded) return;
+        if (event.pointerType === "mouse" && event.button !== 0) return;
         pointerId = event.pointerId;
         draggingPlaques = true;
         moved = 0;
+        vx = 0;
         startX = event.clientX;
+        lastX = event.clientX;
+        startTime = performance.now();
+        lastT = startTime;
         startFloat = pageFloatNow();
-        pagesEl.classList.add("dragging");
+        pendingFloat = startFloat;
         plaquesEl.setPointerCapture(event.pointerId);
     });
     plaquesEl.addEventListener("pointermove", onMove);
@@ -508,6 +520,12 @@ function bindPlaqueDrag() {
 }
 
 pagesEl.addEventListener("scroll", onPagesScroll, { passive: true });
+pagesEl.addEventListener("click", (event) => {
+    const link = event.target.closest("a");
+    if (!link) return;
+    event.preventDefault();
+    openExternal(link.getAttribute("href"));
+});
 window.addEventListener("resize", () => {
     cacheMetrics();
     const idx = Math.max(0, warehouse.categories.indexOf(selectedKey));
@@ -515,12 +533,11 @@ window.addEventListener("resize", () => {
 });
 refreshBtn.addEventListener("click", () => loadData(true));
 retryBtn.addEventListener("click", () => loadData(true));
-webBtn.href = SITE_URL;
+webBtn.addEventListener("click", () => openExternal(SITE_URL));
 
 bindDockSwipe();
 bindPlaqueDrag();
 applyDock();
 initTelegram();
 applySafeArea();
-bakeWallpaper();
 loadData(false);
