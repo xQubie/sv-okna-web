@@ -406,31 +406,157 @@ infoDlgScrim.addEventListener("click", closeInfoDialog);
 function bindStageSwipe() {
     let startX = 0;
     let startY = 0;
-    let tracking = false;
+    let lastX = 0;
+    let lastT = 0;
+    let vx = 0;
+    let mode = "idle";
+    let dir = 0;
+    let width = 0;
+    let current = null;
+    let neighbor = null;
+    let nextKey = null;
 
-    stageEl.addEventListener("pointerdown", (event) => {
-        if (event.pointerType === "mouse" && event.button !== 0) return;
-        if (event.target.closest("a, .info-btn, button")) return;
-        tracking = true;
-        startX = event.clientX;
-        startY = event.clientY;
-    });
-    const endSwipe = (event) => {
-        if (!tracking) return;
-        tracking = false;
-        if (sliding || !infoDlg.classList.contains("hidden")) return;
-        const dx = event.clientX - startX;
-        const dy = event.clientY - startY;
-        if (Math.abs(dx) < 52) return;
-        if (Math.abs(dx) < Math.abs(dy) * 1.25) return;
+    const teardown = (keepNeighbor) => {
+        const panes = [...stageTrack.querySelectorAll(".pane")];
+        if (keepNeighbor && neighbor) {
+            panes.forEach((pane) => {
+                if (pane !== neighbor) pane.remove();
+            });
+            selectedKey = nextKey;
+            renderSections();
+            neighbor.scrollTop = 0;
+        } else if (current) {
+            panes.forEach((pane) => {
+                if (pane !== current) pane.remove();
+            });
+        }
+        stageTrack.style.transition = "none";
+        stageTrack.style.transform = "translate3d(0,0,0)";
+        document.body.classList.remove("chrome-away");
+        lastScroll = 0;
+        sliding = false;
+        mode = "idle";
+        current = null;
+        neighbor = null;
+        nextKey = null;
+        dir = 0;
+    };
+
+    const settle = (commit) => {
+        sliding = true;
+        const target = commit
+            ? (dir > 0 ? -width : 0)
+            : (dir > 0 ? 0 : -width);
+        stageTrack.style.transition = "transform 280ms cubic-bezier(0.22, 1, 0.36, 1)";
+        stageTrack.style.transform = `translate3d(${target}px,0,0)`;
+        let done = false;
+        const finish = (event) => {
+            if (event && event.target !== stageTrack) return;
+            if (done) return;
+            done = true;
+            stageTrack.removeEventListener("transitionend", finish);
+            teardown(commit);
+        };
+        stageTrack.addEventListener("transitionend", finish);
+        window.setTimeout(finish, 360);
+    };
+
+    const applyDrag = (x) => {
+        const dx = x - startX;
+        if (dir > 0) {
+            const offset = Math.max(-width, Math.min(0, dx));
+            stageTrack.style.transform = `translate3d(${offset}px,0,0)`;
+        } else {
+            const offset = Math.max(-width, Math.min(0, -width + dx));
+            stageTrack.style.transform = `translate3d(${offset}px,0,0)`;
+        }
+    };
+
+    const startDrag = (x) => {
         const keys = warehouse.categories;
         const index = keys.indexOf(selectedKey);
-        if (index < 0) return;
-        if (dx < 0 && index < keys.length - 1) selectCategory(keys[index + 1], true);
-        else if (dx > 0 && index > 0) selectCategory(keys[index - 1], true);
+        const nextIndex = index + dir;
+        if (nextIndex < 0 || nextIndex >= keys.length) return false;
+        current = stageTrack.querySelector(".pane");
+        if (!current) return false;
+        nextKey = keys[nextIndex];
+        neighbor = createPane(nextKey);
+        width = stageEl.clientWidth || window.innerWidth;
+        stageTrack.style.transition = "none";
+        if (dir > 0) {
+            stageTrack.appendChild(neighbor);
+            stageTrack.style.transform = "translate3d(0,0,0)";
+        } else {
+            stageTrack.insertBefore(neighbor, current);
+            stageTrack.style.transform = `translate3d(${-width}px,0,0)`;
+        }
+        mode = "drag";
+        applyDrag(x);
+        return true;
     };
-    stageEl.addEventListener("pointerup", endSwipe);
-    stageEl.addEventListener("pointercancel", () => { tracking = false; });
+
+    const onMove = (x, y, event) => {
+        if (mode === "idle" || sliding) return;
+        const now = performance.now();
+        vx = (x - lastX) / Math.max(now - lastT, 1);
+        lastX = x;
+        lastT = now;
+        const dx = x - startX;
+        const dy = y - startY;
+        if (mode === "maybe") {
+            if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) {
+                mode = "idle";
+                return;
+            }
+            if (Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy)) {
+                dir = dx < 0 ? 1 : -1;
+                if (!startDrag(x)) {
+                    mode = "idle";
+                    return;
+                }
+                event.preventDefault();
+            }
+            return;
+        }
+        if (mode === "drag") {
+            event.preventDefault();
+            applyDrag(x);
+        }
+    };
+
+    const onEnd = (event) => {
+        if (mode === "drag") {
+            if (event.type === "pointercancel") {
+                settle(false);
+                return;
+            }
+            const dx = lastX - startX;
+            const progress = dir > 0 ? -dx / width : dx / width;
+            const flick = dir > 0 ? vx < -0.35 : vx > 0.35;
+            settle(progress > 0.18 || flick);
+            return;
+        }
+        mode = "idle";
+    };
+
+    stageEl.addEventListener("pointerdown", (event) => {
+        if (sliding || !infoDlg.classList.contains("hidden")) return;
+        if (event.pointerType === "mouse" && event.button !== 0) return;
+        if (event.target.closest("a, .info-btn, button")) return;
+        mode = "maybe";
+        startX = lastX = event.clientX;
+        startY = event.clientY;
+        lastT = performance.now();
+        vx = 0;
+        try { stageEl.setPointerCapture(event.pointerId); } catch (_) { /* ignore */ }
+    });
+    stageEl.addEventListener("pointermove", (event) => onMove(event.clientX, event.clientY, event), { passive: false });
+    stageEl.addEventListener("pointerup", onEnd);
+    stageEl.addEventListener("pointercancel", onEnd);
+    stageEl.addEventListener("touchmove", (event) => {
+        if (event.touches.length !== 1) return;
+        onMove(event.touches[0].clientX, event.touches[0].clientY, event);
+    }, { passive: false });
 }
 
 bindStageSwipe();
