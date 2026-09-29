@@ -140,6 +140,31 @@ function escapeHtml(text) {
         .replaceAll('"', "&quot;");
 }
 
+function copyText(text) {
+    if (!text) return Promise.resolve(false);
+    if (navigator.clipboard && window.isSecureContext) {
+        return navigator.clipboard.writeText(text).then(() => true).catch(() => copyTextFallback(text));
+    }
+    return Promise.resolve(copyTextFallback(text));
+}
+
+function copyTextFallback(text) {
+    try {
+        const field = document.createElement("textarea");
+        field.value = text;
+        field.setAttribute("readonly", "");
+        field.style.cssText = "position:fixed;left:0;top:0;width:1px;height:1px;opacity:0";
+        document.body.appendChild(field);
+        field.focus();
+        field.select();
+        field.setSelectionRange(0, text.length);
+        const ok = document.execCommand("copy");
+        field.remove();
+        return ok;
+    } catch (_) {
+        return false;
+    }
+}
 function openExternal(url) {
     const href = linkHref(url);
     if (!href) return;
@@ -198,8 +223,8 @@ function rowHtml(key, pos) {
         }</span>`;
     const links = (!isDelivery && (pos.avito || pos.ozon)) ? `
         <div class="row-links">
-            ${pos.avito ? `<a href="${linkHref(pos.avito)}" target="_blank" rel="noopener">Avito</a>` : ""}
-            ${pos.ozon ? `<a href="${linkHref(pos.ozon)}" target="_blank" rel="noopener">Ozon</a>` : ""}
+            ${pos.avito ? `<button type="button" class="market" data-href="${escapeHtml(linkHref(pos.avito))}">Avito</button>` : ""}
+            ${pos.ozon ? `<button type="button" class="market" data-href="${escapeHtml(linkHref(pos.ozon))}">Ozon</button>` : ""}
         </div>` : "";
     const side = isDelivery ? "" : `
         <div class="row-side">
@@ -395,10 +420,14 @@ stageEl.addEventListener("click", (event) => {
         openInfoDialog();
         return;
     }
-    const link = event.target.closest("a");
-    if (!link) return;
-    event.preventDefault();
-    openExternal(link.getAttribute("href"));
+    const market = event.target.closest(".market");
+    if (market) {
+        const href = market.getAttribute("data-href") || "";
+        copyText(href).then((ok) => {
+            showToast(ok ? "Ссылка скопирована" : "Не удалось скопировать");
+        });
+        return;
+    }
 });
 infoDlgOk.addEventListener("click", closeInfoDialog);
 infoDlgScrim.addEventListener("click", closeInfoDialog);

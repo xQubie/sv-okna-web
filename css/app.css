@@ -405,11 +405,14 @@ body.chrome-away .chrome {
     margin-top: 4px;
 }
 
-.row-links a {
+.row-links .market {
+    border: 0;
+    padding: 0;
+    background: none;
     font-size: 13px;
     font-weight: 600;
     color: var(--accent);
-    text-decoration: none;
+    cursor: pointer;
 }
 
 .empty {
