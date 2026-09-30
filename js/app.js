@@ -270,7 +270,7 @@ function paneInnerHtml(key) {
     const info = (warehouse.infos[key] || "").trim();
     const title = displayTitle(key);
     const offer = discount(title);
-    return `<div class="cat-head"><h1 class="cat-title"><button type="button" class="category-picker" aria-haspopup="dialog" aria-expanded="false" aria-label="Выбрать раздел: ${escapeHtml(cleanTitle(title))}">${escapeHtml(cleanTitle(title))}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg></button></h1>${offer ? `<span class="discount">${escapeHtml(offer)}</span>` : ''}${info ? '<button type="button" class="info-btn" aria-label="Информация о разделе">i</button>' : ''}</div>
+    return `<div class="cat-head"><h1 class="cat-title"><button type="button" class="category-picker" aria-haspopup="dialog" aria-expanded="false" aria-label="Выбрать раздел: ${escapeHtml(cleanTitle(title))}">${escapeHtml(cleanTitle(title))}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg></button></h1>${offer ? `<span class="discount">${escapeHtml(offer)}</span>` : ''}${info ? '<button type="button" class="info-btn" aria-label="Информация о разделе">i</button>' : ''}</div>
         <div class="product-list">${items.length ? items.map(pos => rowHtml(key,pos)).join("") : '<div class="empty">В этом разделе пока нет позиций</div>'}</div>`;
 }
 function createPane(key) {
