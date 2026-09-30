@@ -2,32 +2,27 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="color-scheme" content="light dark">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Склад">
-    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#071018">
-    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#8AA7BB">
-    <title>Склад</title>
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#101218">
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#F3F5F9">
+    <title>СВ Окна · Склад</title>
     <link rel="apple-touch-icon" href="img/apple-touch-icon.png">
     <link rel="icon" type="image/png" href="img/favicon.png">
     <link rel="manifest" href="manifest.webmanifest">
-    <link rel="stylesheet" href="css/app.css?v=20">
+    <link rel="stylesheet" href="css/app.css?v=30">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
 <body>
-    <div class="scene" aria-hidden="true">
-        <div class="scene-photo"></div>
-        <div class="scene-wash"></div>
-    </div>
-
     <div class="chrome" id="chrome">
         <header class="appbar">
             <div class="brand">
-                <p class="eyebrow">Склад</p>
-                <p class="sync" id="syncLabel">ещё не синхронизировали</p>
+                <p class="eyebrow"><span class="brand-mark" aria-hidden="true">св</span> СВ ОКНА <span class="brand-divider">/</span> <span class="brand-label">Склад</span></p>
+                <p class="sync" id="syncLabel">Загружаем склад…</p>
             </div>
             <div class="actions">
                 <button type="button" class="icon-btn" id="refreshBtn" aria-label="Обновить">
@@ -48,19 +43,26 @@
         </header>
     </div>
 
-    <div id="errorBanner" class="banner hidden">
+    <div id="errorBanner" class="banner hidden" role="alert">
         <span id="errorText">Нет связи со складом</span>
         <button type="button" id="retryBtn">Повторить</button>
     </div>
 
     <main class="stage" id="stage">
-        <div class="stage-track" id="stageTrack"></div>
+        <div class="stage-track" id="stageTrack"><div class="loading-state" role="status"><span class="loading-orbit"></span><h1>Ваш склад, под рукой</h1><p>Загружаем разделы и позиции</p><div class="skeleton"></div><div class="skeleton"></div></div></div>
     </main>
 
-    <nav class="dock" id="dock" aria-label="Разделы">
-        <div class="sections" id="sections"></div>
+    <nav class="dock" id="dock" aria-label="Навигация по складу">
+        <button class="catalog-button" id="catalogBtn" aria-haspopup="dialog" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></svg><span>Разделы</span></button>
+        <div class="dock-position"><span id="dockTitle">Склад</span><span id="dockCounter">Загрузка</span></div>
+        <button class="icon-btn next-btn" id="nextBtn" aria-label="Следующий раздел"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m9 5 7 7-7 7"/></svg></button>
     </nav>
-    <div id="toast" class="toast hidden">Информация обновлена</div>
+    <dialog id="categoryDlg" class="category-dialog" aria-labelledby="categoryTitle">
+        <div class="sheet-handle" aria-hidden="true"></div>
+        <header class="sheet-header"><div><p class="overline">СВ ОКНА / КАТАЛОГ</p><h2 id="categoryTitle">Все разделы</h2></div><button id="categoryClose" class="icon-btn" aria-label="Закрыть разделы">×</button></header>
+        <div class="sections" id="sections"></div>
+    </dialog>
+    <div id="toast" class="toast hidden" role="status" aria-live="polite">Информация обновлена</div>
     <div id="infoDlg" class="dlg hidden" role="dialog" aria-modal="true" aria-labelledby="infoDlgTitle">
         <button type="button" class="dlg-scrim" id="infoDlgScrim" aria-label="Закрыть"></button>
         <div class="dlg-card">
@@ -70,6 +72,6 @@
         </div>
     </div>
 
-    <script src="js/app.js?v=20"></script>
+    <script src="js/app.js?v=30"></script>
 </body>
 </html>

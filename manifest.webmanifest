@@ -1,13 +1,13 @@
 {
-  "name": "Склад",
+  "name": "СВ Окна · Склад",
   "short_name": "Склад",
   "lang": "ru",
   "display": "standalone",
   "orientation": "portrait",
   "start_url": "./",
   "scope": "./",
-  "background_color": "#071018",
-  "theme_color": "#071018",
+  "background_color": "#101218",
+  "theme_color": "#101218",
   "icons": [
     {
       "src": "img/icon-192.png",

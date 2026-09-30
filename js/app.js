@@ -2,15 +2,6 @@ const BIN_URL = "https://api.jsonbin.io/v3/b/69a9530ed0ea881f40f12d78";
 const MASTER_KEY = "$2a$10$5YbFE8JVfomxRwl2x1XOzOyJXmUkVRi.ssHGBEvHkVGlSPyyBQcpC";
 const SITE_URL = "https://sv-okna.ru/derevyannyie-okna-dlya-bani.htm";
 const META = new Set(["_categories", "_category_infos", "_category_titles"]);
-const DEFAULT_CATEGORIES = [
-    "Лиственница 78 [-5%]",
-    "Липа 60 [-15%]",
-    "ОСВ Для Дачи [-10%]",
-    "Дуб 78",
-    "Аксессуары",
-    "Двери ПВХ",
-    "Условия доставки",
-];
 const DELIVERY = "Условия доставки";
 const PVC = "Двери ПВХ";
 
@@ -35,6 +26,10 @@ let selectedKey = null;
 let toastTimer = 0;
 let lastScroll = 0;
 let sliding = false;
+let loading = false;
+const categoryDlg = document.getElementById("categoryDlg");
+const catalogBtn = document.getElementById("catalogBtn");
+let dialogReturnFocus = null;
 
 function initTelegram() {
     const tg = window.Telegram?.WebApp;
@@ -43,7 +38,7 @@ function initTelegram() {
         tg.ready();
         tg.expand();
         const dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-        const color = dark ? "#071018" : "#C9D8E6";
+        const color = dark ? "#101218" : "#F3F5F9";
         tg.setHeaderColor(color);
         tg.setBackgroundColor(color);
         if (typeof tg.setBottomBarColor === "function") tg.setBottomBarColor(color);
@@ -66,7 +61,7 @@ function resolveKey(data, category) {
 
 function parseArray(arr, category) {
     const defaultShow = category === PVC;
-    return (arr || []).map((obj) => ({
+    return (arr || []).filter(obj => obj && typeof obj === "object").map((obj) => ({
         name: obj.name || "",
         quantity: Number(obj.quantity) || 0,
         price: Number(obj.price) || 0,
@@ -79,31 +74,35 @@ function parseArray(arr, category) {
 }
 
 function parseRecord(data) {
+    if (!data || typeof data !== "object" || Array.isArray(data)) throw new Error("Invalid record");
     let categories = [];
     if (Array.isArray(data._categories) && data._categories.length) {
-        categories = data._categories.slice();
+        categories = [...new Set(data._categories.filter(key => typeof key === "string" && key.trim()))];
     } else {
-        categories = DEFAULT_CATEGORIES.slice();
+        categories = Object.keys(data).filter(key => !META.has(key) && Array.isArray(data[key]));
     }
     const infosObj = data._category_infos || {};
     const titlesObj = data._category_titles || {};
-    const positions = {};
-    const infos = {};
-    const titles = {};
+    const positions = Object.create(null);
+    const loadedKeys = new Set();
+    const infos = Object.create(null);
+    const titles = Object.create(null);
 
     for (const category of categories) {
         const keyToLoad = resolveKey(data, category);
+        loadedKeys.add(keyToLoad);
         positions[category] = Array.isArray(data[keyToLoad])
             ? parseArray(data[keyToLoad], category)
             : [];
-        infos[category] = infosObj[keyToLoad] || "";
-        if (titlesObj[category]) titles[category] = titlesObj[category];
+        infos[category] = String(infosObj[category] || infosObj[keyToLoad] || "");
+        if (titlesObj[category] || titlesObj[keyToLoad]) titles[category] = String(titlesObj[category] || titlesObj[keyToLoad]);
     }
 
     for (const key of Object.keys(data)) {
-        if (META.has(key) || positions[key] || !Array.isArray(data[key])) continue;
+        if (META.has(key) || loadedKeys.has(key) || positions[key] || !Array.isArray(data[key])) continue;
         positions[key] = parseArray(data[key], key);
-        if (titlesObj[key]) titles[key] = titlesObj[key];
+        infos[key] = String(infosObj[key] || "");
+        if (titlesObj[key]) titles[key] = String(titlesObj[key]);
         if (!categories.includes(key)) categories.push(key);
     }
 
@@ -174,8 +173,13 @@ function openExternal(url) {
             return;
         }
     } catch (_) { /* ignore */ }
-    const opened = window.open(href, "_blank", "noopener,noreferrer");
-    if (!opened) window.location.href = href;
+    const link = document.createElement("a");
+    link.href = href;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
 }
 
 function applySafeArea() {
@@ -215,42 +219,30 @@ function showToast(text) {
 }
 
 function rowHtml(key, pos) {
-    const isDelivery = key === DELIVERY;
+    if (key === DELIVERY) return `<article class="row delivery-row"><span class="delivery-symbol" aria-hidden="true">↳</span><div class="row-name">${escapeHtml(pos.name)}</div></article>`;
     const inStock = pos.quantity > 0;
-    const stock = isDelivery ? "" : `
-        <span class="row-stock ${inStock ? "in" : "out"}">${
-            pos.showQuantity ? `${pos.quantity} шт.` : (inStock ? "есть" : "нет")
-        }</span>`;
-    const links = (!isDelivery && (pos.avito || pos.ozon)) ? `
-        <div class="row-links">
-            ${pos.avito ? `<button type="button" class="market" data-act="copy" data-href="${escapeHtml(linkHref(pos.avito))}">Avito</button>` : ""}
-            ${pos.ozon ? `<button type="button" class="market" data-act="open" data-href="${escapeHtml(linkHref(pos.ozon))}">Ozon</button>` : ""}
-        </div>` : "";
-    const side = isDelivery ? "" : `
-        <div class="row-side">
-            <div class="row-price">${formatPrice(pos.price)}</div>
-            ${links}
-        </div>`;
-    return `
-        <article class="row">
-            <div class="row-main">
-                <div class="row-name">${escapeHtml(pos.name)}</div>
-                ${stock}
-            </div>
-            ${side}
-        </article>`;
+    const stock = pos.showQuantity ? `${pos.quantity} шт.` : (inStock ? "В наличии" : "Нет в наличии");
+    return `<article class="row${inStock ? "" : " unavailable"}">
+        <div class="product-top"><span class="product-label">${escapeHtml(cleanTitle(displayTitle(key)))}</span><span class="row-stock ${inStock ? "in" : "out"}">${stock}</span></div>
+        <h2 class="row-name">${escapeHtml(pos.name)}</h2>
+        <div class="product-bottom"><div class="row-price">${formatPrice(pos.price)}</div><div class="row-links">
+        ${pos.avito ? `<button type="button" class="market avito" data-act="copy" data-href="${escapeHtml(linkHref(pos.avito))}" aria-label="Скопировать ссылку Avito: ${escapeHtml(pos.name)}">Avito <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="3"/><path d="M15 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h2"/></svg></button>` : ""}
+        ${pos.ozon ? `<button type="button" class="market ozon" data-act="open" data-href="${escapeHtml(linkHref(pos.ozon))}" aria-label="Открыть Ozon: ${escapeHtml(pos.name)}">Ozon</button>` : ""}
+        </div></div></article>`;
 }
 
+function cleanTitle(title) { return title.replace(/\s*\[-\d+%\]\s*/g, " ").trim(); }
+function discount(title) { return title.match(/\[(-\d+%)\]/)?.[1] || ""; }
+function positionLabel(n) { const m = n % 100, d = n % 10; return `${n} ${m >= 11 && m <= 14 ? "позиций" : d === 1 ? "позиция" : d >= 2 && d <= 4 ? "позиции" : "позиций"}`; }
 function renderSections() {
-    sectionsEl.innerHTML = warehouse.categories.map((key) => `
-        <button type="button" class="chip${key === selectedKey ? " is-on" : ""}" data-key="${encodeURIComponent(key)}">
-            ${escapeHtml(displayTitle(key))}
-        </button>
-    `).join("");
-    const active = sectionsEl.querySelector(".chip.is-on");
-    if (active) {
-        active.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" });
-    }
+    sectionsEl.innerHTML = warehouse.categories.map((key, i) => `
+        <button type="button" class="chip${key === selectedKey ? " is-on" : ""}" data-key="${encodeURIComponent(key)}" aria-current="${key === selectedKey ? "true" : "false"}">
+            <span class="section-number">${String(i + 1).padStart(2, "0")}</span>
+            <span class="section-copy"><span>${escapeHtml(displayTitle(key))}</span><small>${positionLabel((warehouse.positions[key] || []).length)}</small></span><span class="section-check" aria-hidden="true">${key === selectedKey ? "✓" : ""}</span>
+        </button>`).join("");
+    document.getElementById("dockTitle").textContent = selectedKey ? cleanTitle(displayTitle(selectedKey)) : "Склад";
+    document.getElementById("dockCounter").textContent = selectedKey ? `${warehouse.categories.indexOf(selectedKey) + 1} / ${warehouse.categories.length}` : "Нет разделов";
+    document.getElementById("nextBtn").disabled = warehouse.categories.length < 2;
 }
 
 function openInfoDialog() {
@@ -260,36 +252,36 @@ function openInfoDialog() {
     if (!info.trim()) return;
     infoDlgTitle.textContent = displayTitle(key);
     infoDlgText.textContent = info;
+    dialogReturnFocus = document.activeElement;
     infoDlg.classList.remove("hidden");
+    document.getElementById("chrome").inert = true;
+    stageEl.inert = true;
+    document.getElementById("dock").inert = true;
+    infoDlgOk.focus();
 }
 
 function closeInfoDialog() {
     infoDlg.classList.add("hidden");
+    document.getElementById("chrome").inert = false;
+    stageEl.inert = false;
+    document.getElementById("dock").inert = false;
+    dialogReturnFocus?.focus();
 }
 
 function paneInnerHtml(key) {
     const items = warehouse.positions[key] || [];
     const info = (warehouse.infos[key] || "").trim();
-    const body = items.length
-        ? items.map((pos) => rowHtml(key, pos)).join("")
-        : `<div class="empty">В этом разделе пока пусто</div>`;
-    const infoBtn = info
-        ? `<button type="button" class="info-btn" aria-label="Информация">i</button>`
-        : "";
-    return `
-        <div class="cat-head">
-            <h1 class="cat-title">${escapeHtml(displayTitle(key))}</h1>
-            ${infoBtn}
-        </div>
-        ${body}`;
+    const title = displayTitle(key);
+    const offer = discount(title);
+    return `<section class="category-hero">
+        <div class="hero-top"><span class="overline">${key === DELIVERY ? "СЕРВИС" : "КАТАЛОГ / В НАЛИЧИИ И ПОД ЗАКАЗ"}</span><span class="hero-number">${String(warehouse.categories.indexOf(key) + 1).padStart(2,"0")}</span></div>
+        <div class="cat-head"><h1 class="cat-title">${escapeHtml(cleanTitle(title))}</h1>${info ? '<button type="button" class="info-btn" aria-label="Информация о разделе">i</button>' : ''}</div>
+        <div class="hero-bottom"><span>${positionLabel(items.length)}</span>${offer ? `<span class="discount">${escapeHtml(offer)}</span>` : ''}</div>
+        </section><div class="list-heading"><span>${key === DELIVERY ? "Условия" : "Позиции склада"}</span><span>${String(items.length).padStart(2,"0")}</span></div>
+        <div class="product-list">${items.length ? items.map(pos => rowHtml(key,pos)).join("") : '<div class="empty">В этом разделе пока нет позиций</div>'}</div>
+        <p class="end-note">${key === DELIVERY ? "СВ Окна" : "Цены и наличие обновляются из склада"}</p>`;
 }
-
-function onPaneScroll(event) {
-    const y = event.currentTarget.scrollTop;
-    if (y > lastScroll + 8 && y > 40) document.body.classList.add("chrome-away");
-    else if (y < lastScroll - 8) document.body.classList.remove("chrome-away");
-    lastScroll = y;
-}
+function onPaneScroll() {}
 
 function createPane(key) {
     const pane = document.createElement("div");
@@ -302,7 +294,7 @@ function createPane(key) {
 
 function showPane(key) {
     if (!key) {
-        stageTrack.replaceChildren();
+        stageTrack.innerHTML = '<div class="loading-state"><h1>Разделов пока нет</h1><p>Они появятся здесь после добавления в облачный склад.</p></div>';
         return;
     }
     stageTrack.replaceChildren(createPane(key));
@@ -360,6 +352,7 @@ function slideTo(key, dir) {
 }
 
 function selectCategory(key, animate) {
+    if (sliding) return;
     if (!key || key === selectedKey) {
         renderSections();
         return;
@@ -384,17 +377,24 @@ function render() {
 }
 
 async function loadData(manual) {
+    if (loading || sliding) return;
+    loading = true;
+    refreshBtn.disabled = true;
     hideError();
     refreshBtn.classList.add("spin");
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
     try {
         const response = await fetch(BIN_URL, {
+            signal: controller.signal,
+            cache: "no-store",
             method: "GET",
             headers: { "X-Master-Key": MASTER_KEY, "X-Bin-Meta": "false" },
         });
         if (!response.ok) throw new Error("sync");
         const data = await response.json();
         const keep = manual ? selectedKey : null;
-        warehouse = parseRecord(data);
+        warehouse = parseRecord(data.record || data);
         selectedKey = (keep && warehouse.categories.includes(keep))
             ? keep
             : (warehouse.categories[0] || null);
@@ -402,8 +402,15 @@ async function loadData(manual) {
         syncLabel.textContent = formatTime(new Date());
         if (manual) showToast("Информация обновлена");
     } catch (_) {
-        showError("Нет связи со складом");
+        showError(warehouse.categories.length ? "Не удалось обновить. Показаны предыдущие данные." : "Не удалось загрузить склад. Проверьте подключение.");
+        if (!warehouse.categories.length) {
+            syncLabel.textContent = "Нет связи со складом";
+            stageTrack.innerHTML = '<div class="loading-state"><span class="offline-icon">!</span><h1>Склад пока недоступен</h1><p>Нажмите «Повторить», чтобы загрузить разделы и позиции.</p></div>';
+        }
     } finally {
+        clearTimeout(timeout);
+        loading = false;
+        refreshBtn.disabled = false;
         refreshBtn.classList.remove("spin");
     }
 }
@@ -413,6 +420,7 @@ sectionsEl.addEventListener("click", (event) => {
     if (!chip) return;
     const key = decodeURIComponent(chip.dataset.key || "");
     if (key && key !== selectedKey) selectCategory(key, true);
+    categoryDlg.close();
 });
 
 stageEl.addEventListener("click", (event) => {
@@ -573,7 +581,7 @@ function bindStageSwipe() {
     };
 
     stageEl.addEventListener("pointerdown", (event) => {
-        if (sliding || !infoDlg.classList.contains("hidden")) return;
+        if (sliding || loading || !infoDlg.classList.contains("hidden")) return;
         if (event.pointerType === "mouse" && event.button !== 0) return;
         if (event.target.closest("a, .info-btn, button")) return;
         mode = "maybe";
@@ -592,6 +600,22 @@ function bindStageSwipe() {
     }, { passive: false });
 }
 
+catalogBtn.addEventListener("click", () => {
+    if (!warehouse.categories.length || sliding) return;
+    categoryDlg.showModal();
+    catalogBtn.setAttribute("aria-expanded", "true");
+});
+document.getElementById("categoryClose").addEventListener("click", () => categoryDlg.close());
+categoryDlg.addEventListener("close", () => { catalogBtn.setAttribute("aria-expanded", "false"); catalogBtn.focus(); });
+categoryDlg.addEventListener("click", event => { if (event.target === categoryDlg) { const r = categoryDlg.getBoundingClientRect(); if (event.clientY < r.top || event.clientX < r.left || event.clientX > r.right) categoryDlg.close(); } });
+document.getElementById("nextBtn").addEventListener("click", () => {
+    if (warehouse.categories.length < 2 || sliding) return;
+    selectCategory(warehouse.categories[(warehouse.categories.indexOf(selectedKey) + 1) % warehouse.categories.length], true);
+});
+infoDlg.addEventListener("keydown", event => {
+    if (event.key === "Escape") closeInfoDialog();
+    if (event.key === "Tab") { event.preventDefault(); infoDlgOk.focus(); }
+});
 bindStageSwipe();
 
 refreshBtn.addEventListener("click", () => loadData(true));
