@@ -184,19 +184,9 @@ function openExternal(url) {
 }
 
 function applySafeArea() {
-    const standalone = Boolean(
-        window.navigator.standalone
-        || window.matchMedia("(display-mode: standalone)").matches,
-    );
-    const tg = Number(window.Telegram?.WebApp?.safeAreaInset?.bottom || 0);
-    const env = getComputedStyle(document.documentElement)
-        .getPropertyValue("--safe-bottom")
-        .trim();
-    const envPx = Number.parseFloat(env) || 0;
-    const px = Math.max(envPx, tg, standalone ? 34 : 0);
-    if (px > 0) {
-        document.documentElement.style.setProperty("--safe-bottom", `${px}px`);
-    }
+    // Keep CSS env() live: iOS safe insets can change after launching or rotating.
+    const tgBottom = Number(window.Telegram?.WebApp?.safeAreaInset?.bottom || 0);
+    document.documentElement.style.setProperty("--safe-bottom", `max(env(safe-area-inset-bottom, 0px), ${Math.max(0,tgBottom)}px)`);
 }
 
 function showError(message) {
@@ -289,7 +279,13 @@ function paneInnerHtml(key) {
     return `<div class="cat-head"><h1 class="cat-title">${escapeHtml(cleanTitle(title))}</h1>${info ? '<button type="button" class="info-btn" aria-label="Информация о разделе">i</button>' : ''}${offer ? `<span class="discount">${escapeHtml(offer)}</span>` : ''}</div>
         <div class="product-list">${items.length ? items.map(pos => rowHtml(key,pos)).join("") : '<div class="empty">В этом разделе пока нет позиций</div>'}</div>`;
 }
-function onPaneScroll() {}
+function onPaneScroll(event) {
+    const pane = event.currentTarget;
+    const previous = Number(pane.dataset.previousScroll || 0);
+    const top = pane.scrollTop;
+    if (top > 30 && top - previous > 8) setDockCollapsed(true);
+    pane.dataset.previousScroll = String(top);
+}
 
 function createPane(key) {
     const pane = document.createElement("div");
@@ -695,3 +691,43 @@ sectionCards.addEventListener('scroll',()=>{clearTimeout(cardsScrollTimer);cards
 sectionCards.addEventListener('scrollend',selectVisibleCard);
 sectionCards.addEventListener('click',()=>{cardsUserScroll=false;},true);
 stageEl.addEventListener('pointerdown',()=>{cardsUserScroll=false;},{passive:true});
+
+// Collapsible information sheet. Horizontal gestures still select categories;
+// vertical gestures collapse/expand without stealing vertical list scrolling.
+const dockEl = document.getElementById('dock');
+const dockToggle = document.getElementById('dockToggle');
+let dockCollapsed = false;
+try { dockCollapsed = localStorage.getItem('sv-warehouse-info-collapsed') === 'true'; } catch {}
+function setDockCollapsed(collapsed) {
+    dockCollapsed = collapsed;
+    dockEl.classList.toggle('is-collapsed', collapsed);
+    dockToggle.setAttribute('aria-expanded', String(!collapsed));
+    dockToggle.setAttribute('aria-label', collapsed ? 'Развернуть информацию о разделе' : 'Свернуть информацию о разделе');
+    sectionCards.inert = collapsed;
+    sectionCards.setAttribute('aria-hidden', String(collapsed));
+    try { localStorage.setItem('sv-warehouse-info-collapsed',String(collapsed)); } catch {}
+}
+dockToggle.addEventListener('click',()=>setDockCollapsed(!dockCollapsed));
+let dockGesture = null;
+let suppressDockClickUntil = 0;
+dockEl.addEventListener('touchstart',event=>{
+    if(event.touches.length!==1)return;
+    const t=event.touches[0];dockGesture={x:t.clientX,y:t.clientY,vertical:false,dy:0};
+},{passive:true});
+dockEl.addEventListener('touchmove',event=>{
+    if(!dockGesture||event.touches.length!==1)return;
+    const t=event.touches[0],dx=t.clientX-dockGesture.x,dy=t.clientY-dockGesture.y;
+    if(Math.abs(dy)>12&&Math.abs(dy)>Math.abs(dx)*1.3){dockGesture.vertical=true;dockGesture.dy=dy;event.preventDefault();}
+},{passive:false});
+dockEl.addEventListener('touchend',()=>{
+    if(dockGesture?.vertical&&Math.abs(dockGesture.dy)>35){
+        cardsUserScroll=false;
+        setDockCollapsed(dockGesture.dy>0);
+        suppressDockClickUntil=performance.now()+400;
+    }
+    dockGesture=null;
+},{passive:true});
+dockEl.addEventListener('touchcancel',()=>{dockGesture=null;},{passive:true});
+dockEl.addEventListener('click',event=>{if(performance.now()<suppressDockClickUntil){event.preventDefault();event.stopImmediatePropagation();}},true);
+setDockCollapsed(dockCollapsed);
+window.addEventListener('resize',applySafeArea);

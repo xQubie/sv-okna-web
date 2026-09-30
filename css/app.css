@@ -12,3 +12,30 @@
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
 @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){.row,.dock,.actions,.section-card{background:var(--panel)}}
 .section-card{display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start}
+/* v41: usable information sheet and clearer glass on actual mobile screens. */
+.scene-photo{filter:blur(3px) var(--photo-filter)}
+:root{--glass:rgba(243,251,248,.51)}
+:root[data-style=warm]{--glass:rgba(255,247,228,.54)}
+:root[data-style=blue]{--glass:rgba(226,242,255,.52)}
+:root[data-scheme=dark]{--glass:rgba(31,42,43,.46);--photo-filter:grayscale(.85) brightness(.66);--wash:linear-gradient(135deg,#06151638,#15272845)}
+:root[data-style=warm][data-scheme=dark]{--glass:rgba(61,43,28,.48);--photo-filter:saturate(.9) brightness(.65);--wash:linear-gradient(135deg,#26170b22,#381c0c30)}
+:root[data-style=blue][data-scheme=dark]{--glass:rgba(16,42,73,.47);--photo-filter:grayscale(1) brightness(.7);--wash:linear-gradient(135deg,#0c346982,#00265072)}
+.row{backdrop-filter:blur(10px) saturate(1.2);-webkit-backdrop-filter:blur(10px) saturate(1.2);box-shadow:inset 0 1px 2px #fff6,inset 0 -1px 2px #fff1,var(--shadow)}
+.dock{height:27dvh;min-height:180px;max-height:280px;padding-top:0;transition:height .3s cubic-bezier(.2,.8,.2,1),min-height .3s;overflow:hidden}
+.dock-toggle{display:grid;place-items:center;width:100%;height:26px;min-height:26px;padding:0;border:0;background:transparent;touch-action:none;flex-shrink:0;cursor:ns-resize}
+.dock-toggle .dock-handle{width:40px;height:4px;transition:width .2s,opacity .2s}
+.dock-header{height:32px}
+.dock-header>button:first-child{min-height:32px}
+.dock.is-collapsed{height:calc(58px + var(--safe-bottom));min-height:calc(58px + var(--safe-bottom));max-height:none;padding-bottom:var(--safe-bottom)}
+.dock.is-collapsed .section-cards{display:none}
+.dock.is-collapsed .dock-handle{width:48px;opacity:.7}
+.dock.is-collapsed #catalogBtn{font-size:13px}
+@media(max-height:650px){.dock:not(.is-collapsed){height:29dvh;min-height:150px}}
+@media(prefers-reduced-motion:reduce){.dock{transition:none}}
+/* Layered highlights leave the centre clear instead of painting an opaque card. */
+.row,.actions,.section-card{background-image:linear-gradient(120deg,rgba(255,255,255,.11),transparent 28%,transparent 73%,rgba(255,255,255,.035));background-clip:padding-box}
+.row{position:relative;border-color:var(--soft-edge);border-top-color:var(--edge);box-shadow:inset 1px 1px 1px #ffffff70,inset -1px -1px 1px #ffffff25,0 5px 16px #0000000f}
+:root[data-scheme=dark] .row{background-color:rgba(24,38,38,.33)}
+:root[data-style=blue][data-scheme=dark] .row{background-color:rgba(10,33,66,.31)}
+:root[data-style=warm][data-scheme=dark] .row{background-color:rgba(47,30,16,.33)}
+:root[data-scheme=dark] .row-name,:root[data-scheme=dark] .row-price{text-shadow:0 1px 8px #0005}
