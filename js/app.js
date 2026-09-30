@@ -27,6 +27,7 @@ let toastTimer = 0;
 let lastScroll = 0;
 let sliding = false;
 let loading = false;
+let dataRevision = 0;
 const categoryDlg = document.getElementById("categoryDlg");
 const catalogBtn = document.getElementById("catalogBtn");
 let dialogReturnFocus = null;
@@ -219,14 +220,12 @@ function showToast(text) {
 }
 
 function rowHtml(key, pos) {
-    if (key === DELIVERY) return `<article class="row delivery-row"><span class="delivery-symbol" aria-hidden="true">↳</span><div class="row-name">${escapeHtml(pos.name)}</div></article>`;
+    if (key === DELIVERY) return `<article class="row delivery-row"><div class="row-name">${escapeHtml(pos.name)}</div></article>`;
     const inStock = pos.quantity > 0;
-    const stock = pos.showQuantity ? `${pos.quantity} шт.` : (inStock ? "В наличии" : "Нет в наличии");
-    return `<article class="row${inStock ? "" : " unavailable"}">
-        <div class="product-top"><span class="product-label">${escapeHtml(cleanTitle(displayTitle(key)))}</span><span class="row-stock ${inStock ? "in" : "out"}">${stock}</span></div>
-        <h2 class="row-name">${escapeHtml(pos.name)}</h2>
-        <div class="product-bottom"><div class="row-price">${formatPrice(pos.price)}</div><div class="row-links">
-        ${pos.avito ? `<button type="button" class="market avito" data-act="copy" data-href="${escapeHtml(linkHref(pos.avito))}" aria-label="Скопировать ссылку Avito: ${escapeHtml(pos.name)}">Avito <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="3"/><path d="M15 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h2"/></svg></button>` : ""}
+    const stock = pos.showQuantity ? `${pos.quantity} шт.` : (inStock ? "есть" : "нет");
+    return `<article class="row${inStock ? "" : " unavailable"}"><div class="row-main"><h2 class="row-name">${escapeHtml(pos.name)}</h2><span class="row-stock ${inStock ? "in" : "out"}">${stock}</span></div>
+        <div class="row-side"><div class="row-price">${formatPrice(pos.price)}</div><div class="row-links">
+        ${pos.avito ? `<button type="button" class="market avito" data-act="copy" data-href="${escapeHtml(linkHref(pos.avito))}" aria-label="Скопировать ссылку Avito: ${escapeHtml(pos.name)}">Avito</button>` : ""}
         ${pos.ozon ? `<button type="button" class="market ozon" data-act="open" data-href="${escapeHtml(linkHref(pos.ozon))}" aria-label="Открыть Ozon: ${escapeHtml(pos.name)}">Ozon</button>` : ""}
         </div></div></article>`;
 }
@@ -240,6 +239,20 @@ function renderSections() {
             <span class="section-number">${String(i + 1).padStart(2, "0")}</span>
             <span class="section-copy"><span>${escapeHtml(displayTitle(key))}</span><small>${positionLabel((warehouse.positions[key] || []).length)}</small></span><span class="section-check" aria-hidden="true">${key === selectedKey ? "✓" : ""}</span>
         </button>`).join("");
+    const cards = document.getElementById("sectionCards");
+    const keys = warehouse.categories;
+    // Avoid rebuilding the horizontal strip on every selection, preserving its scroll.
+    if (cards.dataset.keys !== JSON.stringify(keys) || cards.dataset.revision !== String(dataRevision)) {
+        cards.innerHTML = keys.map(key => `<button type="button" class="section-card" data-key="${encodeURIComponent(key)}"><span class="section-card-title">${escapeHtml(displayTitle(key))}</span><span class="section-card-info">${escapeHtml(warehouse.infos[key] || positionLabel((warehouse.positions[key] || []).length))}</span></button>`).join("");
+        cards.dataset.keys = JSON.stringify(keys);
+        cards.dataset.revision = String(dataRevision);
+    }
+    cards.querySelectorAll(".section-card").forEach(card => {
+        const active = decodeURIComponent(card.dataset.key) === selectedKey;
+        card.classList.toggle("is-on", active);
+        card.setAttribute("aria-pressed", String(active));
+        if (active) requestAnimationFrame(() => cards.scrollTo({left:Math.max(0,card.offsetLeft - cards.offsetLeft - 24), behavior:window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth"}));
+    });
     document.getElementById("dockTitle").textContent = selectedKey ? cleanTitle(displayTitle(selectedKey)) : "Склад";
     document.getElementById("dockCounter").textContent = selectedKey ? `${warehouse.categories.indexOf(selectedKey) + 1} / ${warehouse.categories.length}` : "Нет разделов";
     document.getElementById("nextBtn").disabled = warehouse.categories.length < 2;
@@ -273,13 +286,8 @@ function paneInnerHtml(key) {
     const info = (warehouse.infos[key] || "").trim();
     const title = displayTitle(key);
     const offer = discount(title);
-    return `<section class="category-hero">
-        <div class="hero-top"><span class="overline">${key === DELIVERY ? "СЕРВИС" : "КАТАЛОГ / В НАЛИЧИИ И ПОД ЗАКАЗ"}</span><span class="hero-number">${String(warehouse.categories.indexOf(key) + 1).padStart(2,"0")}</span></div>
-        <div class="cat-head"><h1 class="cat-title">${escapeHtml(cleanTitle(title))}</h1>${info ? '<button type="button" class="info-btn" aria-label="Информация о разделе">i</button>' : ''}</div>
-        <div class="hero-bottom"><span>${positionLabel(items.length)}</span>${offer ? `<span class="discount">${escapeHtml(offer)}</span>` : ''}</div>
-        </section><div class="list-heading"><span>${key === DELIVERY ? "Условия" : "Позиции склада"}</span><span>${String(items.length).padStart(2,"0")}</span></div>
-        <div class="product-list">${items.length ? items.map(pos => rowHtml(key,pos)).join("") : '<div class="empty">В этом разделе пока нет позиций</div>'}</div>
-        <p class="end-note">${key === DELIVERY ? "СВ Окна" : "Цены и наличие обновляются из склада"}</p>`;
+    return `<div class="cat-head"><h1 class="cat-title">${escapeHtml(cleanTitle(title))}</h1>${info ? '<button type="button" class="info-btn" aria-label="Информация о разделе">i</button>' : ''}${offer ? `<span class="discount">${escapeHtml(offer)}</span>` : ''}</div>
+        <div class="product-list">${items.length ? items.map(pos => rowHtml(key,pos)).join("") : '<div class="empty">В этом разделе пока нет позиций</div>'}</div>`;
 }
 function onPaneScroll() {}
 
@@ -395,6 +403,7 @@ async function loadData(manual) {
         const data = await response.json();
         const keep = manual ? selectedKey : null;
         warehouse = parseRecord(data.record || data);
+        dataRevision += 1;
         selectedKey = (keep && warehouse.categories.includes(keep))
             ? keep
             : (warehouse.categories[0] || null);
@@ -623,5 +632,66 @@ retryBtn.addEventListener("click", () => loadData(true));
 webBtn.addEventListener("click", () => openExternal(SITE_URL));
 
 initTelegram();
+window.warehouseTheme.apply();
 applySafeArea();
 loadData(false);
+
+// Appearance preferences are device-local; inventory remains exclusively cloud-based.
+const settingsDlg = document.getElementById("settingsDlg");
+const settingsBtn = document.getElementById("settingsBtn");
+function updateSettings() {
+    const prefs = window.warehouseTheme.get();
+    document.querySelectorAll('[name="glassStyle"]').forEach(input => input.checked = input.value === prefs.style);
+    document.querySelectorAll('[name="colorMode"]').forEach(input => input.checked = input.value === prefs.mode);
+    const styles = {warm:"Тёплое",blue:"Синее",silver:"Серебристое"};
+    const modes = {light:"Светлая",dark:"Тёмная",system:"Системная"};
+    document.getElementById("selectionLabel").textContent = `${styles[prefs.style]} · ${modes[prefs.mode]}`;
+}
+settingsBtn.addEventListener("click", () => { updateSettings(); settingsDlg.showModal(); settingsBtn.setAttribute("aria-expanded","true"); });
+function closeSettings() {
+    if (!settingsDlg.open || settingsDlg.classList.contains("closing")) return;
+    settingsDlg.classList.add("closing");
+    setTimeout(() => { settingsDlg.close();settingsDlg.classList.remove("closing");settingsDlg.style.removeProperty("transform"); }, window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 220);
+}
+document.getElementById("settingsClose").addEventListener("click",closeSettings);
+settingsDlg.addEventListener("cancel",event=>{event.preventDefault();closeSettings();});
+settingsDlg.addEventListener("close",()=>{settingsBtn.setAttribute("aria-expanded","false");settingsBtn.focus();});
+settingsDlg.addEventListener("click",event=>{if(event.target===settingsDlg){const r=settingsDlg.getBoundingClientRect();if(event.clientY<r.top||event.clientX<r.left||event.clientX>r.right)closeSettings();}});
+settingsDlg.addEventListener("change",event=>{
+    const input=event.target;
+    if(input.name!=="glassStyle"&&input.name!=="colorMode")return;
+    const saved=window.warehouseTheme.set(input.name==="glassStyle"?{style:input.value}:{mode:input.value});
+    updateSettings();
+    document.getElementById("settingsHint").textContent=saved?"Изменения применяются сразу":"Применено. Браузер не разрешил запомнить выбор.";
+});
+const handle=document.getElementById("settingsHandle");let dragStart=null;
+handle.addEventListener("pointerdown",event=>{dragStart=event.clientY;handle.setPointerCapture(event.pointerId);});
+handle.addEventListener("pointermove",event=>{if(dragStart!==null)settingsDlg.style.transform=`translateY(${Math.max(0,event.clientY-dragStart)}px)`;});
+handle.addEventListener("pointerup",event=>{if(dragStart!==null&&event.clientY-dragStart>70)closeSettings();else settingsDlg.style.removeProperty("transform");dragStart=null;});
+handle.addEventListener("pointercancel",()=>{dragStart=null;settingsDlg.style.removeProperty("transform");});
+document.getElementById("sectionCards").addEventListener("click",event=>{const card=event.target.closest(".section-card");if(card)selectCategory(decodeURIComponent(card.dataset.key),true);});
+window.addEventListener("warehouse-theme-change",updateSettings);
+updateSettings();
+// Both surfaces navigate the same selected category. Native horizontal scrolling
+// handles the cards; only a user-initiated scroll commits a new category.
+const sectionCards = document.getElementById('sectionCards');
+let cardsUserScroll = false;
+let cardsScrollTimer = 0;
+let cardsPointerDown = false;
+function selectVisibleCard() {
+    if (!cardsUserScroll || cardsPointerDown || sliding || loading) return;
+    const cards = [...sectionCards.querySelectorAll('.section-card')];
+    if (!cards.length) return;
+    const left = sectionCards.getBoundingClientRect().left + 24;
+    const nearest = cards.reduce((best, card) => Math.abs(card.getBoundingClientRect().left-left)<Math.abs(best.getBoundingClientRect().left-left)?card:best);
+    cardsUserScroll = false;
+    selectCategory(decodeURIComponent(nearest.dataset.key), true);
+}
+sectionCards.addEventListener('pointerdown',()=>{cardsUserScroll=true;cardsPointerDown=true;},{passive:true});
+window.addEventListener('pointerup',()=>{cardsPointerDown=false;if(cardsUserScroll){clearTimeout(cardsScrollTimer);cardsScrollTimer=setTimeout(selectVisibleCard,180);}},{passive:true});
+sectionCards.addEventListener('pointercancel',()=>{cardsPointerDown=false;},{passive:true});
+sectionCards.addEventListener('wheel',()=>{cardsUserScroll=true;},{passive:true});
+sectionCards.addEventListener('scroll',()=>{clearTimeout(cardsScrollTimer);cardsScrollTimer=setTimeout(selectVisibleCard,160);},{passive:true});
+sectionCards.addEventListener('scrollend',selectVisibleCard);
+sectionCards.addEventListener('click',()=>{cardsUserScroll=false;},true);
+stageEl.addEventListener('pointerdown',()=>{cardsUserScroll=false;},{passive:true});
