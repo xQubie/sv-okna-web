@@ -28,8 +28,12 @@ let lastScroll = 0;
 let sliding = false;
 let loading = false;
 let dataRevision = 0;
+let entranceAnimations = [];
+let entranceTimers = [];
+let infoCloseTimer = 0;
+let lastDataLoad = 0;
+let hiddenSince = 0;
 const categoryDlg = document.getElementById("categoryDlg");
-const catalogBtn = document.getElementById("catalogBtn");
 let dialogReturnFocus = null;
 
 function initTelegram() {
@@ -229,23 +233,7 @@ function renderSections() {
             <span class="section-number">${String(i + 1).padStart(2, "0")}</span>
             <span class="section-copy"><span>${escapeHtml(displayTitle(key))}</span><small>${positionLabel((warehouse.positions[key] || []).length)}</small></span><span class="section-check" aria-hidden="true">${key === selectedKey ? "✓" : ""}</span>
         </button>`).join("");
-    const cards = document.getElementById("sectionCards");
-    const keys = warehouse.categories;
-    // Avoid rebuilding the horizontal strip on every selection, preserving its scroll.
-    if (cards.dataset.keys !== JSON.stringify(keys) || cards.dataset.revision !== String(dataRevision)) {
-        cards.innerHTML = keys.map(key => `<button type="button" class="section-card" data-key="${encodeURIComponent(key)}"><span class="section-card-title">${escapeHtml(displayTitle(key))}</span><span class="section-card-info">${escapeHtml(warehouse.infos[key] || positionLabel((warehouse.positions[key] || []).length))}</span></button>`).join("");
-        cards.dataset.keys = JSON.stringify(keys);
-        cards.dataset.revision = String(dataRevision);
-    }
-    cards.querySelectorAll(".section-card").forEach(card => {
-        const active = decodeURIComponent(card.dataset.key) === selectedKey;
-        card.classList.toggle("is-on", active);
-        card.setAttribute("aria-pressed", String(active));
-        if (active) requestAnimationFrame(() => cards.scrollTo({left:Math.max(0,card.offsetLeft - cards.offsetLeft - 24), behavior:window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth"}));
-    });
-    document.getElementById("dockTitle").textContent = selectedKey ? cleanTitle(displayTitle(selectedKey)) : "Склад";
-    document.getElementById("dockCounter").textContent = selectedKey ? `${warehouse.categories.indexOf(selectedKey) + 1} / ${warehouse.categories.length}` : "Нет разделов";
-    document.getElementById("nextBtn").disabled = warehouse.categories.length < 2;
+
 }
 
 function openInfoDialog() {
@@ -253,22 +241,28 @@ function openInfoDialog() {
     if (!key) return;
     const info = warehouse.infos[key] || "";
     if (!info.trim()) return;
+    cancelRowEntrance();
+    clearTimeout(infoCloseTimer);
+    infoDlg.classList.remove("is-closing");
     infoDlgTitle.textContent = displayTitle(key);
     infoDlgText.textContent = info;
     dialogReturnFocus = document.activeElement;
     infoDlg.classList.remove("hidden");
     document.getElementById("chrome").inert = true;
     stageEl.inert = true;
-    document.getElementById("dock").inert = true;
     infoDlgOk.focus();
 }
 
 function closeInfoDialog() {
-    infoDlg.classList.add("hidden");
-    document.getElementById("chrome").inert = false;
-    stageEl.inert = false;
-    document.getElementById("dock").inert = false;
-    dialogReturnFocus?.focus();
+    if (infoDlg.classList.contains("hidden") || infoDlg.classList.contains("is-closing")) return;
+    infoDlg.classList.add("is-closing");
+    infoCloseTimer = setTimeout(() => {
+        infoDlg.classList.add("hidden");
+        infoDlg.classList.remove("is-closing");
+        document.getElementById("chrome").inert = false;
+        stageEl.inert = false;
+        dialogReturnFocus?.focus();
+    }, matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 180);
 }
 
 function paneInnerHtml(key) {
@@ -276,27 +270,19 @@ function paneInnerHtml(key) {
     const info = (warehouse.infos[key] || "").trim();
     const title = displayTitle(key);
     const offer = discount(title);
-    return `<div class="cat-head"><h1 class="cat-title">${escapeHtml(cleanTitle(title))}</h1>${info ? '<button type="button" class="info-btn" aria-label="Информация о разделе">i</button>' : ''}${offer ? `<span class="discount">${escapeHtml(offer)}</span>` : ''}</div>
+    return `<div class="cat-head"><h1 class="cat-title"><button type="button" class="category-picker" aria-haspopup="dialog" aria-expanded="false" aria-label="Выбрать раздел: ${escapeHtml(cleanTitle(title))}">${escapeHtml(cleanTitle(title))}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg></button></h1>${offer ? `<span class="discount">${escapeHtml(offer)}</span>` : ''}${info ? '<button type="button" class="info-btn" aria-label="Информация о разделе">i</button>' : ''}</div>
         <div class="product-list">${items.length ? items.map(pos => rowHtml(key,pos)).join("") : '<div class="empty">В этом разделе пока нет позиций</div>'}</div>`;
 }
-function onPaneScroll(event) {
-    const pane = event.currentTarget;
-    const previous = Number(pane.dataset.previousScroll || 0);
-    const top = pane.scrollTop;
-    if (top > 30 && top - previous > 8) setDockCollapsed(true);
-    pane.dataset.previousScroll = String(top);
-}
-
 function createPane(key) {
     const pane = document.createElement("div");
     pane.className = "pane";
     pane.dataset.key = key;
     pane.innerHTML = paneInnerHtml(key);
-    pane.addEventListener("scroll", onPaneScroll, { passive: true });
     return pane;
 }
 
 function showPane(key) {
+    cancelRowEntrance();
     if (!key) {
         stageTrack.innerHTML = '<div class="loading-state"><h1>Разделов пока нет</h1><p>Они появятся здесь после добавления в облачный склад.</p></div>';
         return;
@@ -309,6 +295,7 @@ function showPane(key) {
 }
 
 function slideTo(key, dir) {
+    cancelRowEntrance();
     const current = stageTrack.querySelector(".pane");
     if (!current || sliding) {
         selectedKey = key;
@@ -382,6 +369,7 @@ function render() {
 
 async function loadData(manual) {
     if (loading || sliding) return;
+    cancelRowEntrance();
     loading = true;
     refreshBtn.disabled = true;
     hideError();
@@ -404,6 +392,8 @@ async function loadData(manual) {
             ? keep
             : (warehouse.categories[0] || null);
         render();
+        lastDataLoad = Date.now();
+        animateLoadedRows();
         syncLabel.textContent = formatTime(new Date());
         if (manual) showToast("Информация обновлена");
     } catch (_) {
@@ -589,6 +579,7 @@ function bindStageSwipe() {
         if (sliding || loading || !infoDlg.classList.contains("hidden")) return;
         if (event.pointerType === "mouse" && event.button !== 0) return;
         if (event.target.closest("a, .info-btn, button")) return;
+        cancelRowEntrance();
         mode = "maybe";
         startX = lastX = event.clientX;
         startY = event.clientY;
@@ -605,18 +596,15 @@ function bindStageSwipe() {
     }, { passive: false });
 }
 
-catalogBtn.addEventListener("click", () => {
-    if (!warehouse.categories.length || sliding) return;
+stageEl.addEventListener("click", event => {
+    const button=event.target.closest('.category-picker');
+    if (!button || sliding || !warehouse.categories.length) return;
     categoryDlg.showModal();
-    catalogBtn.setAttribute("aria-expanded", "true");
+    button.setAttribute('aria-expanded','true');
 });
 document.getElementById("categoryClose").addEventListener("click", () => categoryDlg.close());
-categoryDlg.addEventListener("close", () => { catalogBtn.setAttribute("aria-expanded", "false"); catalogBtn.focus(); });
+categoryDlg.addEventListener("close", () => { const button=stageTrack.querySelector('.category-picker');button?.setAttribute('aria-expanded','false');button?.focus(); });
 categoryDlg.addEventListener("click", event => { if (event.target === categoryDlg) { const r = categoryDlg.getBoundingClientRect(); if (event.clientY < r.top || event.clientX < r.left || event.clientX > r.right) categoryDlg.close(); } });
-document.getElementById("nextBtn").addEventListener("click", () => {
-    if (warehouse.categories.length < 2 || sliding) return;
-    selectCategory(warehouse.categories[(warehouse.categories.indexOf(selectedKey) + 1) % warehouse.categories.length], true);
-});
 infoDlg.addEventListener("keydown", event => {
     if (event.key === "Escape") closeInfoDialog();
     if (event.key === "Tab") { event.preventDefault(); infoDlgOk.focus(); }
@@ -665,69 +653,56 @@ handle.addEventListener("pointerdown",event=>{dragStart=event.clientY;handle.set
 handle.addEventListener("pointermove",event=>{if(dragStart!==null)settingsDlg.style.transform=`translateY(${Math.max(0,event.clientY-dragStart)}px)`;});
 handle.addEventListener("pointerup",event=>{if(dragStart!==null&&event.clientY-dragStart>70)closeSettings();else settingsDlg.style.removeProperty("transform");dragStart=null;});
 handle.addEventListener("pointercancel",()=>{dragStart=null;settingsDlg.style.removeProperty("transform");});
-document.getElementById("sectionCards").addEventListener("click",event=>{const card=event.target.closest(".section-card");if(card)selectCategory(decodeURIComponent(card.dataset.key),true);});
 window.addEventListener("warehouse-theme-change",updateSettings);
 updateSettings();
-// Both surfaces navigate the same selected category. Native horizontal scrolling
-// handles the cards; only a user-initiated scroll commits a new category.
-const sectionCards = document.getElementById('sectionCards');
-let cardsUserScroll = false;
-let cardsScrollTimer = 0;
-let cardsPointerDown = false;
-function selectVisibleCard() {
-    if (!cardsUserScroll || cardsPointerDown || sliding || loading) return;
-    const cards = [...sectionCards.querySelectorAll('.section-card')];
-    if (!cards.length) return;
-    const left = sectionCards.getBoundingClientRect().left + 24;
-    const nearest = cards.reduce((best, card) => Math.abs(card.getBoundingClientRect().left-left)<Math.abs(best.getBoundingClientRect().left-left)?card:best);
-    cardsUserScroll = false;
-    selectCategory(decodeURIComponent(nearest.dataset.key), true);
-}
-sectionCards.addEventListener('pointerdown',()=>{cardsUserScroll=true;cardsPointerDown=true;},{passive:true});
-window.addEventListener('pointerup',()=>{cardsPointerDown=false;if(cardsUserScroll){clearTimeout(cardsScrollTimer);cardsScrollTimer=setTimeout(selectVisibleCard,180);}},{passive:true});
-sectionCards.addEventListener('pointercancel',()=>{cardsPointerDown=false;},{passive:true});
-sectionCards.addEventListener('wheel',()=>{cardsUserScroll=true;},{passive:true});
-sectionCards.addEventListener('scroll',()=>{clearTimeout(cardsScrollTimer);cardsScrollTimer=setTimeout(selectVisibleCard,160);},{passive:true});
-sectionCards.addEventListener('scrollend',selectVisibleCard);
-sectionCards.addEventListener('click',()=>{cardsUserScroll=false;},true);
-stageEl.addEventListener('pointerdown',()=>{cardsUserScroll=false;},{passive:true});
-
-// Collapsible information sheet. Horizontal gestures still select categories;
-// vertical gestures collapse/expand without stealing vertical list scrolling.
-const dockEl = document.getElementById('dock');
-const dockToggle = document.getElementById('dockToggle');
-let dockCollapsed = false;
-try { dockCollapsed = localStorage.getItem('sv-warehouse-info-collapsed') === 'true'; } catch {}
-function setDockCollapsed(collapsed) {
-    dockCollapsed = collapsed;
-    dockEl.classList.toggle('is-collapsed', collapsed);
-    dockToggle.setAttribute('aria-expanded', String(!collapsed));
-    dockToggle.setAttribute('aria-label', collapsed ? 'Развернуть информацию о разделе' : 'Свернуть информацию о разделе');
-    sectionCards.inert = collapsed;
-    sectionCards.setAttribute('aria-hidden', String(collapsed));
-    try { localStorage.setItem('sv-warehouse-info-collapsed',String(collapsed)); } catch {}
-}
-dockToggle.addEventListener('click',()=>setDockCollapsed(!dockCollapsed));
-let dockGesture = null;
-let suppressDockClickUntil = 0;
-dockEl.addEventListener('touchstart',event=>{
-    if(event.touches.length!==1)return;
-    const t=event.touches[0];dockGesture={x:t.clientX,y:t.clientY,vertical:false,dy:0};
-},{passive:true});
-dockEl.addEventListener('touchmove',event=>{
-    if(!dockGesture||event.touches.length!==1)return;
-    const t=event.touches[0],dx=t.clientX-dockGesture.x,dy=t.clientY-dockGesture.y;
-    if(Math.abs(dy)>12&&Math.abs(dy)>Math.abs(dx)*1.3){dockGesture.vertical=true;dockGesture.dy=dy;event.preventDefault();}
-},{passive:false});
-dockEl.addEventListener('touchend',()=>{
-    if(dockGesture?.vertical&&Math.abs(dockGesture.dy)>35){
-        cardsUserScroll=false;
-        setDockCollapsed(dockGesture.dy>0);
-        suppressDockClickUntil=performance.now()+400;
-    }
-    dockGesture=null;
-},{passive:true});
-dockEl.addEventListener('touchcancel',()=>{dockGesture=null;},{passive:true});
-dockEl.addEventListener('click',event=>{if(performance.now()<suppressDockClickUntil){event.preventDefault();event.stopImmediatePropagation();}},true);
-setDockCollapsed(dockCollapsed);
 window.addEventListener('resize',applySafeArea);
+
+function cancelRowEntrance() {
+    entranceTimers.forEach(clearTimeout);
+    entranceTimers = [];
+    entranceAnimations.forEach(animation => animation.cancel());
+    entranceAnimations = [];
+}
+function softHaptic() {
+    if (document.hidden) return;
+    const tg = window.Telegram?.WebApp;
+    try {
+        // The SDK is also loaded in browsers; use its native bridge only in a Mini App.
+        if (tg?.initData && tg.HapticFeedback && (!tg.isVersionAtLeast || tg.isVersionAtLeast('6.1'))) {
+            tg.HapticFeedback.impactOccurred('soft');
+            return;
+        }
+        if (typeof navigator.vibrate === 'function' && navigator.userActivation?.hasBeenActive) navigator.vibrate(8);
+    } catch { /* Haptics are optional and must never block the interface. */ }
+}
+function animateLoadedRows() {
+    cancelRowEntrance();
+    if (document.hidden || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const pane = stageTrack.querySelector('.pane');
+    if (!pane || typeof Element.prototype.animate !== 'function') return;
+    const bounds = pane.getBoundingClientRect();
+    const rows = [...pane.querySelectorAll('.row')].filter(row => {
+        const rect = row.getBoundingClientRect();
+        return rect.top < bounds.bottom && rect.bottom > bounds.top;
+    });
+    rows.forEach((row,index) => {
+        const delay = index * 95;
+        entranceAnimations.push(row.animate([
+            {opacity:0,transform:'translateY(14px) scale(.985)'},
+            {opacity:1,transform:'translateY(0) scale(1)'}
+        ], {duration:340,delay,easing:'cubic-bezier(.2,.75,.25,1)',fill:'backwards'}));
+        entranceTimers.push(setTimeout(() => {
+            if (!row.isConnected || document.hidden || !infoDlg.classList.contains('hidden') || document.querySelector('dialog[open]')) return;
+            const rect=row.getBoundingClientRect(), area=pane.getBoundingClientRect();
+            if(rect.top<area.bottom&&rect.bottom>area.top)softHaptic();
+        },delay+95));
+    });
+}
+document.addEventListener('visibilitychange',()=>{
+    if(document.hidden){hiddenSince=Date.now();cancelRowEntrance();return;}
+    if(hiddenSince && Date.now()-hiddenSince>15000 && Date.now()-lastDataLoad>15000)loadData(true);
+    hiddenSince=0;
+});
+window.addEventListener('pagehide',cancelRowEntrance);
+window.addEventListener('pageshow',event=>{if(event.persisted && Date.now()-lastDataLoad>1000)loadData(true);});
+matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change',event=>{if(event.matches)cancelRowEntrance();});
