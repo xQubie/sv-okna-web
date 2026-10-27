@@ -1,5 +1,12 @@
 // One appearance follows the device. Previous theme choices are no longer read.
 (() => {
+    const standalone = matchMedia('(display-mode: standalone)');
+    function applyDisplayMode() {
+        document.documentElement.dataset.display = standalone.matches || navigator.standalone === true
+            ? 'standalone' : 'browser';
+    }
+    applyDisplayMode();
+    standalone.addEventListener('change', applyDisplayMode);
     const system = matchMedia('(prefers-color-scheme: dark)');
     function apply() {
         const scheme = system.matches ? 'dark' : 'light';

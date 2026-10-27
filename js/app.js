@@ -187,6 +187,13 @@ function applySafeArea() {
     // Keep CSS env() live: iOS safe insets can change after launching or rotating.
     const tgBottom = Number(window.Telegram?.WebApp?.safeAreaInset?.bottom || 0);
     document.documentElement.style.setProperty("--safe-bottom", `max(env(safe-area-inset-bottom, 0px), ${Math.max(0,tgBottom)}px)`);
+    // Keep the last row above any area hidden by the installed iOS shell.
+    // Measure the mismatch; do not add the safe area twice or guess an iPhone size.
+    const root = document.documentElement;
+    const visibleHeight = Math.min(window.innerHeight, window.visualViewport?.height || window.innerHeight);
+    const gap = root.dataset.display === 'standalone'
+        ? Math.max(0, root.getBoundingClientRect().height - visibleHeight) : 0;
+    root.style.setProperty('--viewport-gap', `${Math.ceil(gap)}px`);
 }
 
 function showError(message) {
@@ -618,6 +625,9 @@ applySafeArea();
 loadData(false);
 
 window.addEventListener('resize', applySafeArea);
+window.visualViewport?.addEventListener('resize', applySafeArea);
+window.addEventListener('pageshow', applySafeArea);
+window.addEventListener('orientationchange', applySafeArea);
 
 function cancelRowEntrance() {
     entranceTimers.forEach(clearTimeout);
