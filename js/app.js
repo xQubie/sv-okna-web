@@ -38,15 +38,11 @@ let dialogReturnFocus = null;
 
 function initTelegram() {
     const tg = window.Telegram?.WebApp;
-    if (!tg) return;
+    if (!tg?.initData) return;
     try {
         tg.ready();
         tg.expand();
-        const dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-        const color = dark ? "#101218" : "#F3F5F9";
-        tg.setHeaderColor(color);
-        tg.setBackgroundColor(color);
-        if (typeof tg.setBottomBarColor === "function") tg.setBottomBarColor(color);
+        window.warehouseTheme.apply();
     } catch (_) { /* ignore */ }
 }
 
@@ -216,11 +212,11 @@ function showToast(text) {
 function rowHtml(key, pos) {
     if (key === DELIVERY) return `<article class="row delivery-row"><div class="row-name">${escapeHtml(pos.name)}</div></article>`;
     const inStock = pos.quantity > 0;
-    const stock = pos.showQuantity ? `${pos.quantity} шт.` : (inStock ? "есть" : "нет");
+    const stock = pos.showQuantity ? `${pos.quantity} шт.` : (inStock ? "В наличии" : "Нет в наличии");
     return `<article class="row${inStock ? "" : " unavailable"}"><div class="row-main"><h2 class="row-name">${escapeHtml(pos.name)}</h2><span class="row-stock ${inStock ? "in" : "out"}">${stock}</span></div>
         <div class="row-side"><div class="row-price">${formatPrice(pos.price)}</div><div class="row-links">
-        ${pos.avito ? `<button type="button" class="market avito" data-act="copy" data-href="${escapeHtml(linkHref(pos.avito))}" aria-label="Скопировать ссылку Avito: ${escapeHtml(pos.name)}">Avito</button>` : ""}
-        ${pos.ozon ? `<button type="button" class="market ozon" data-act="open" data-href="${escapeHtml(linkHref(pos.ozon))}" aria-label="Открыть Ozon: ${escapeHtml(pos.name)}">Ozon</button>` : ""}
+        ${pos.avito ? `<button type="button" class="market avito" data-act="copy" data-href="${escapeHtml(linkHref(pos.avito))}" aria-label="Скопировать ссылку Avito: ${escapeHtml(pos.name)}">Avito<svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><rect x="4" y="4" width="6" height="6" rx="1.2"/><path d="M7 2H3a1 1 0 0 0-1 1v4"/></svg></button>` : ""}
+        ${pos.ozon ? `<button type="button" class="market ozon" data-act="open" data-href="${escapeHtml(linkHref(pos.ozon))}" aria-label="Открыть Ozon: ${escapeHtml(pos.name)}">Ozon<svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><path d="M3 9 9 3M3 3h6v6"/></svg></button>` : ""}
         </div></div></article>`;
 }
 
@@ -271,6 +267,7 @@ function paneInnerHtml(key) {
     const title = displayTitle(key);
     const offer = discount(title);
     return `<div class="cat-head"><h1 class="cat-title"><button type="button" class="category-picker" aria-haspopup="dialog" aria-expanded="false" aria-label="Выбрать раздел: ${escapeHtml(cleanTitle(title))}">${escapeHtml(cleanTitle(title))}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg></button></h1>${offer ? `<span class="discount">${escapeHtml(offer)}</span>` : ''}${info ? '<button type="button" class="info-btn" aria-label="Информация о разделе">i</button>' : ''}</div>
+        <p class="cat-meta">${positionLabel(items.length)}${key !== DELIVERY ? ` · В наличии: ${items.filter(pos => pos.quantity > 0).length}` : ""}</p>
         <div class="product-list">${items.length ? items.map(pos => rowHtml(key,pos)).join("") : '<div class="empty">В этом разделе пока нет позиций</div>'}</div>`;
 }
 function createPane(key) {
@@ -620,42 +617,7 @@ window.warehouseTheme.apply();
 applySafeArea();
 loadData(false);
 
-// Appearance preferences are device-local; inventory remains exclusively cloud-based.
-const settingsDlg = document.getElementById("settingsDlg");
-const settingsBtn = document.getElementById("settingsBtn");
-function updateSettings() {
-    const prefs = window.warehouseTheme.get();
-    document.querySelectorAll('[name="glassStyle"]').forEach(input => input.checked = input.value === prefs.style);
-    document.querySelectorAll('[name="colorMode"]').forEach(input => input.checked = input.value === prefs.mode);
-    const styles = {warm:"Тёплое",blue:"Синее",silver:"Серебристое"};
-    const modes = {light:"Светлая",dark:"Тёмная",system:"Системная"};
-    document.getElementById("selectionLabel").textContent = `${styles[prefs.style]} · ${modes[prefs.mode]}`;
-}
-settingsBtn.addEventListener("click", () => { updateSettings(); settingsDlg.showModal(); settingsBtn.setAttribute("aria-expanded","true"); });
-function closeSettings() {
-    if (!settingsDlg.open || settingsDlg.classList.contains("closing")) return;
-    settingsDlg.classList.add("closing");
-    setTimeout(() => { settingsDlg.close();settingsDlg.classList.remove("closing");settingsDlg.style.removeProperty("transform"); }, window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 220);
-}
-document.getElementById("settingsClose").addEventListener("click",closeSettings);
-settingsDlg.addEventListener("cancel",event=>{event.preventDefault();closeSettings();});
-settingsDlg.addEventListener("close",()=>{settingsBtn.setAttribute("aria-expanded","false");settingsBtn.focus();});
-settingsDlg.addEventListener("click",event=>{if(event.target===settingsDlg){const r=settingsDlg.getBoundingClientRect();if(event.clientY<r.top||event.clientX<r.left||event.clientX>r.right)closeSettings();}});
-settingsDlg.addEventListener("change",event=>{
-    const input=event.target;
-    if(input.name!=="glassStyle"&&input.name!=="colorMode")return;
-    const saved=window.warehouseTheme.set(input.name==="glassStyle"?{style:input.value}:{mode:input.value});
-    updateSettings();
-    document.getElementById("settingsHint").textContent=saved?"Изменения применяются сразу":"Применено. Браузер не разрешил запомнить выбор.";
-});
-const handle=document.getElementById("settingsHandle");let dragStart=null;
-handle.addEventListener("pointerdown",event=>{dragStart=event.clientY;handle.setPointerCapture(event.pointerId);});
-handle.addEventListener("pointermove",event=>{if(dragStart!==null)settingsDlg.style.transform=`translateY(${Math.max(0,event.clientY-dragStart)}px)`;});
-handle.addEventListener("pointerup",event=>{if(dragStart!==null&&event.clientY-dragStart>70)closeSettings();else settingsDlg.style.removeProperty("transform");dragStart=null;});
-handle.addEventListener("pointercancel",()=>{dragStart=null;settingsDlg.style.removeProperty("transform");});
-window.addEventListener("warehouse-theme-change",updateSettings);
-updateSettings();
-window.addEventListener('resize',applySafeArea);
+window.addEventListener('resize', applySafeArea);
 
 function cancelRowEntrance() {
     entranceTimers.forEach(clearTimeout);
