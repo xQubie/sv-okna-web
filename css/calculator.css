@@ -18,6 +18,11 @@
 }
 
 body.calculator-page {
+  position:fixed;
+  inset:0;
+  width:100%;
+  height:var(--app-height);
+  overflow:hidden;
   font-size:15px;
   line-height:1.4;
 }
@@ -25,6 +30,11 @@ body.calculator-page {
 button,input,select,textarea {
   font:inherit;
   color:inherit;
+}
+
+/* Keep every editable control readable without Safari focus magnification. */
+.calculator-page input,.calculator-page select,.calculator-page textarea {
+  font-size:16px;
 }
 
 button,a,input,select,textarea {
@@ -147,14 +157,17 @@ h3 {
 }
 
 .app-shell {
-  flex:1;
+  position:relative;
+  top:var(--calculator-offset,0px);
+  flex:none;
   display:grid;
   grid-template-rows:auto minmax(0,1fr) auto;
   width:100%;
   max-width:1180px;
-  height:100%;
+  height:var(--calculator-height,100%);
   min-height:0;
-  margin:auto;
+  margin:0 auto;
+  overflow:hidden;
   padding:var(--safe-top) 18px max(12px,var(--safe-bottom),var(--viewport-gap));
   gap:15px;
 }
@@ -1088,7 +1101,7 @@ dialog {
   padding:19px 23px 24px;
   width:calc(100% - 24px);
   max-width:500px;
-  max-height:calc(var(--app-height) - var(--safe-top) - var(--safe-bottom) - 32px);
+  max-height:calc(var(--calculator-height,var(--app-height)) - var(--safe-top) - var(--safe-bottom) - 32px);
   overflow:auto;
   overscroll-behavior:contain;
   -webkit-backdrop-filter:blur(30px) saturate(1.4);
@@ -1622,4 +1635,72 @@ dialog::backdrop {
   font-size: 14px;
   font-weight: 600;
   text-align: center;
+}
+
+/* The keyboard resizes the shell, rather than becoming a bottom safe area. */
+#parameter-scroll,#main-content,dialog {
+  overflow-anchor:none;
+}
+
+:root[data-keyboard] .app-shell {
+  padding-bottom:8px;
+  gap:7px;
+}
+
+:root[data-keyboard] .calculator-header.appbar {
+  padding-top:4px;
+}
+
+:root[data-keyboard] .calculator-header .eyebrow,
+:root[data-keyboard] .visual-price>span,
+:root[data-keyboard] .calculation-info,
+:root[data-keyboard] .price-chip {
+  display:none;
+}
+
+:root[data-keyboard] .visual-summary {
+  min-height:44px;
+  padding:4px 12px;
+}
+
+:root[data-keyboard] #svc-one {
+  font-size:23px;
+}
+
+:root[data-keyboard] .bottom-nav button {
+  min-height:44px;
+}
+
+:root[data-keyboard] dialog[open] {
+  top:calc(var(--calculator-offset,0px) + var(--safe-top));
+  bottom:auto;
+  margin-block:12px;
+}
+
+:root[data-keyboard=compact] .app-shell {
+  grid-template-rows:auto minmax(0,1fr);
+}
+
+:root[data-keyboard=compact] .bottom-nav {
+  display:none;
+}
+
+@media(max-width:760px) {
+  :root[data-keyboard] {
+    --visual-height:140px;
+  }
+  :root[data-keyboard] .calculator-header .brand-title {
+    font-size:22px;
+  }
+  :root[data-keyboard] #svc {
+    gap:8px;
+  }
+  :root[data-keyboard] .parameter-scroll {
+    padding-block:14px;
+    scroll-padding:8px;
+  }
+}
+
+.png-result-help {
+  margin:0 1px 18px;
 }
