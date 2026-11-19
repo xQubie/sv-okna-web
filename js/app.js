@@ -1,5 +1,3 @@
-const BIN_URL = "https://api.jsonbin.io/v3/b/69a9530ed0ea881f40f12d78";
-const MASTER_KEY = "$2a$10$5YbFE8JVfomxRwl2x1XOzOyJXmUkVRi.ssHGBEvHkVGlSPyyBQcpC";
 const SITE_URL = "https://sv-okna.ru/derevyannyie-okna-dlya-bani.htm";
 const META = new Set(["_categories", "_category_infos", "_category_titles"]);
 const DELIVERY = "Условия доставки";
@@ -24,10 +22,8 @@ const infoDlgScrim = document.getElementById("infoDlgScrim");
 let warehouse = { categories: [], titles: {}, infos: {}, positions: {} };
 let selectedKey = null;
 let toastTimer = 0;
-let lastScroll = 0;
 let sliding = false;
 let loading = false;
-let dataRevision = 0;
 let entranceAnimations = [];
 let entranceTimers = [];
 let infoCloseTimer = 0;
@@ -294,8 +290,6 @@ function showPane(key) {
     stageTrack.replaceChildren(createPane(key));
     stageTrack.style.transition = "none";
     stageTrack.style.transform = "translate3d(0,0,0)";
-    document.body.classList.remove("chrome-away");
-    lastScroll = 0;
 }
 
 function slideTo(key, dir) {
@@ -338,8 +332,6 @@ function slideTo(key, dir) {
         stageTrack.style.transition = "none";
         stageTrack.style.transform = "translate3d(0,0,0)";
         incoming.scrollTop = 0;
-        document.body.classList.remove("chrome-away");
-        lastScroll = 0;
         sliding = false;
     };
     stageTrack.addEventListener("transitionend", finish);
@@ -381,17 +373,16 @@ async function loadData(manual) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15000);
     try {
-        const response = await fetch(BIN_URL, {
+        const response = await fetch("api/warehouse", {
             signal: controller.signal,
             cache: "no-store",
             method: "GET",
-            headers: { "X-Master-Key": MASTER_KEY, "X-Bin-Meta": "false" },
+            headers: { "Accept": "application/json" },
         });
         if (!response.ok) throw new Error("sync");
         const data = await response.json();
         const keep = manual ? selectedKey : null;
         warehouse = parseRecord(data.record || data);
-        dataRevision += 1;
         selectedKey = (keep && warehouse.categories.includes(keep))
             ? keep
             : (warehouse.categories[0] || null);
@@ -472,8 +463,6 @@ function bindStageSwipe() {
         }
         stageTrack.style.transition = "none";
         stageTrack.style.transform = "translate3d(0,0,0)";
-        document.body.classList.remove("chrome-away");
-        lastScroll = 0;
         sliding = false;
         mode = "idle";
         current = null;

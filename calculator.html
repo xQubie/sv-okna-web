@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Склад">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#111a24">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#dce4e7">
+<title>СВ Окна · Калькулятор</title>
+<link rel="icon" type="image/png" href="img/favicon.png">
+<link rel="apple-touch-icon" href="img/apple-touch-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="css/app.css?v=46">
+<link rel="stylesheet" href="css/calculator.css?v=1">
+<script src="js/theme.js?v=45"></script>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body class="calculator-page">
+<div class="scene" aria-hidden="true"><div class="scene-photo"></div><div class="scene-tint"></div></div>
+<svg class="icon-library" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs>
+<symbol id="icon-calc" viewBox="0 0 24 24"><rect x="5" y="2.5" width="14" height="19" rx="2.5"/><path d="M8 6h8M8 10h2m4 0h2M8 14h2m4 0h2M8 18h2m4 0h2"/></symbol>
+<symbol id="icon-cart" viewBox="0 0 24 24"><path d="M2.5 3.5h3l2.5 12h10l3-9H6.2"/><circle cx="9" cy="20" r="1"/><circle cx="18" cy="20" r="1"/></symbol>
+<symbol id="icon-history" viewBox="0 0 24 24"><path d="M4 8a9 9 0 1 1-1 8M4 3v5H0M12 7v5l3 2"/></symbol>
+<symbol id="icon-settings" viewBox="0 0 24 24"><path d="m9 3 .7-1h4.6l.7 3 2 .9 2.8-.8 2.3 4-2.1 2.1v2.3l2.1 2.1-2.3 4-2.8-.8-2 .9-.7 3H9.7l-.7-3-2-.9-2.8.8-2.3-4L4 13.5v-2.3L1.9 9.1l2.3-4 2.8.8L9 5Z"/><circle cx="12" cy="12" r="3.2"/></symbol>
+<symbol id="icon-close" viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6"/></symbol>
+<symbol id="icon-document" viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9Zm0 0v6h6M8 13h8M8 17h5"/></symbol>
+<symbol id="icon-image" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="1.5"/><path d="m4 17 5-5 4 4 3-3 5 5"/></symbol>
+<symbol id="icon-refresh" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-2.3-6M21 3v6h-6"/></symbol>
+<symbol id="icon-warehouse" viewBox="0 0 24 24"><path d="m3 9 9-6 9 6v12H3ZM7 21V11h10v10M7 14h10M7 17h10"/></symbol>
+</defs></svg>
+<div class="app-shell">
+<header class="appbar calculator-header">
+  <div class="brand"><p class="eyebrow">СВ ОКНА</p><h1 id="title" class="brand-title">Калькулятор</h1></div>
+  <div class="actions">
+    <a href="index.html" class="icon-btn" aria-label="Вернуться на склад" title="На склад"><svg aria-hidden="true"><use href="#icon-warehouse"/></svg></a>
+    <button id="refresh-prices" class="icon-btn" type="button" aria-label="Проверить актуальность цен" title="Проверить цены"><svg aria-hidden="true"><use href="#icon-refresh"/></svg></button>
+    <button id="settings-toggle" class="icon-btn" type="button" aria-label="Настройки" title="Настройки"><svg aria-hidden="true"><use href="#icon-settings"/></svg></button>
+  </div>
+</header>
+<main id="main-content">
+<section id="calc" class="page" aria-label="Калькулятор">
+<div id="svc" data-montage="1">
+<div class="visual-panel">
+  <div class="blueprint" aria-label="Эскиз окна с размерами">
+    <div id="svc-draw"></div>
+    <svg id="dimension-overlay" class="dimension-overlay" aria-hidden="true" focusable="false"></svg>
+  </div>
+  <div class="visual-summary">
+    <div class="visual-metadata">
+      <button id="price-banner" class="price-chip" aria-label="Прайс и обновление цен">Актуальность цен</button>
+      <p id="svc-info" class="calculation-info"></p>
+    </div>
+    <div class="visual-price"><span>За одно окно</span><strong id="svc-one">—</strong></div>
+  </div>
+</div>
+<div id="parameter-scroll" class="parameter-scroll" tabindex="-1">
+
+<form id="calc-form" class="svc__form">
+<fieldset class="basic-fields"><legend class="visually-hidden">Размеры окна</legend><div class="svc__row dimension-fields"><div class="dimension-combo"><label><span class="field-label">Высота, мм</span><input id="svc-h" type="number" inputmode="numeric" min="400" max="4200" step="1" value="1000" required></label><button type="button" class="dimension-toggle" data-dimension="svc-h" aria-label="Выбрать высоту из списка" aria-haspopup="dialog" aria-controls="dimension-picker" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg></button></div><div class="dimension-combo"><label><span class="field-label">Ширина, мм</span><input id="svc-w" type="number" inputmode="numeric" min="400" max="4200" step="1" value="1000" required></label><button type="button" class="dimension-toggle" data-dimension="svc-w" aria-label="Выбрать ширину из списка" aria-haspopup="dialog" aria-controls="dimension-picker" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg></button></div></div></fieldset>
+<fieldset class="profile-fields"><legend>Профиль</legend><div id="svc-type" class="svc__seg" role="group" aria-label="Профиль окна"><button type="button" data-v="78">ЕВРО 78×78</button><button type="button" data-v="70">ОСВ 60×70</button></div></fieldset>
+<div class="material-row"><label>Порода дерева<select id="svc-material"></select></label><label class="quantity">Количество<input id="svc-q" type="number" inputmode="numeric" min="1" max="99" step="1" value="1" required></label></div>
+<div class="configuration-sections"><div class="details-content">
+<fieldset><legend>Створки</legend><div id="svc-cfg" class="svc__seg" role="group" aria-label="Количество створок"><button type="button" data-v="1">1</button><button type="button" data-v="2">2</button><button type="button" data-v="3">3</button><button type="button" data-v="4">4</button></div><div id="svc-sashes"></div></fieldset>
+<fieldset><legend>Стеклопакет</legend><label>Формула<select id="svc-glass"></select></label><div class="svc__row"><label>Стекло снаружи<select id="svc-gout"></select></label><label>Стекло внутри<select id="svc-gin"></select></label></div></fieldset>
+<fieldset><legend>Отделка</legend><div class="svc__row"><label>Цвет внутри<select id="svc-cin"></select></label><label>Цвет снаружи<select id="svc-cout"></select></label></div><label>Цвет ручек<select id="svc-handle"></select></label></fieldset>
+</div></div>
+</form>
+<div class="parameter-summary"><span id="svc-total"></span></div>
+<div id="svc-warn" role="status"></div>
+<div class="parameter-actions">
+  <button id="add" class="primary full"><span>Добавить в заказ</span></button>
+  <button id="cancel-edit" class="text-button full" hidden>Отменить редактирование</button>
+</div>
+</div>
+</div>
+</section>
+<section id="order" class="page" hidden aria-label="Заказ">
+<section class="proposal-settings" aria-label="Коммерческое предложение">
+  <label>Номер КП<input id="proposal-suffix" type="text" inputmode="text" maxlength="24" autocomplete="off" aria-describedby="proposal-number-hint"></label>
+  <output id="proposal-number-preview" class="proposal-number-preview" aria-label="Полный номер коммерческого предложения" aria-live="polite"></output>
+  <p id="proposal-number-hint" class="field-help">Префикс — в настройках, дата подставляется автоматически. В поле укажите номер после даты.</p>
+</section>
+<div class="section-heading"><h2>Изделия</h2><button data-go="calc" class="text-button">Добавить окно</button></div><div id="items" class="items-list"></div>
+<p id="order-price-note" class="status-note" hidden></p><button id="reprice" class="outline full" hidden>Пересчитать по актуальным ценам</button>
+<details class="configuration customer-details"><summary>Заказчик и доставка<span class="chevron" aria-hidden="true"></span></summary><div class="details-content"><label>Имя или компания<input id="customer" type="text" autocomplete="name" maxlength="120"></label><label>Телефон<input id="contact" type="tel" autocomplete="tel" maxlength="120" placeholder="+7 (495) 798-48-28"></label><label>Адрес доставки<input id="address" type="text" autocomplete="street-address" maxlength="200"></label><label>Комментарий<textarea id="notes" rows="3" maxlength="1000"></textarea></label></div></details>
+<section class="estimate"><h2>Смета</h2><div class="svc__row cost-fields"><label>Доставка, ₽<input id="delivery" type="number" inputmode="numeric" min="0" max="99999999" value="0"></label><div class="discount-combo"><label>Скидка на окна, %<input id="discount" type="number" inputmode="decimal" min="-9999.9" max="100" step="0.1" value="0" aria-describedby="discount-help"></label><button id="discount-sign" type="button" class="discount-sign" aria-label="Сменить знак скидки">±</button></div></div><p id="discount-help" class="field-help discount-help">Минус — наценка. Кнопка ± меняет знак.</p><div id="summary"></div><div class="grand"><span>Итого</span><strong id="grand">0 ₽</strong></div><button id="save" class="primary full">Сохранить заказ</button><div class="export-actions"><button id="png" class="outline full"><svg><use href="#icon-image"/></svg>Сохранить PNG</button></div></section>
+</section>
+<section id="history" class="page" hidden aria-label="История"><div class="section-heading"><h2>Сохранённые заказы</h2><button id="new-order" class="text-button">Новый</button></div><div id="archive"></div></section>
+</main>
+<nav class="bottom-nav" aria-label="Разделы"><button data-view="calc" aria-current="page"><span class="nav-icon"><svg><use href="#icon-calc"/></svg></span><span>Расчёт</span></button><button data-view="order"><span class="nav-icon"><svg><use href="#icon-cart"/></svg><span id="count" class="count" hidden>0</span></span><span>Заказ</span></button><button data-view="history"><span class="nav-icon"><svg><use href="#icon-history"/></svg></span><span>История</span></button></nav>
+</div>
+<dialog id="settings" aria-labelledby="settings-title"><div class="dialog-heading"><h2 id="settings-title">Настройки</h2><button id="settings-close" class="icon-button" aria-label="Закрыть настройки"><svg><use href="#icon-close"/></svg></button></div><select id="theme" hidden aria-hidden="true" tabindex="-1"><option value="system">Как в системе</option></select><section class="business-settings" aria-labelledby="business-settings-title">
+<h3 id="business-settings-title">Компания и документы</h3>
+<label>Название компании<input id="company-name" type="text" maxlength="120" autocomplete="organization"></label>
+<label>Адрес компании<textarea id="company-address" rows="2" maxlength="240" autocomplete="street-address"></textarea></label>
+<label>Телефон компании<input id="company-phone" type="tel" maxlength="80" autocomplete="tel" placeholder="+7 (495) 798-48-28"></label>
+<label>Телефон мессенджеров<input id="messenger-phone" type="tel" maxlength="80" autocomplete="tel" placeholder="+7 (495) 798-48-28" aria-describedby="messenger-phone-hint"></label>
+<p id="messenger-phone-hint" class="field-help messenger-help">Отдельный номер для WhatsApp, Telegram и MAX. Он появится в шапке КП.</p>
+<label>Префикс номера КП<input id="proposal-prefix" type="text" maxlength="12" value="ВВ" autocomplete="off" aria-describedby="proposal-prefix-hint"></label><p id="proposal-prefix-hint" class="field-help">Префикс применяется к новым коммерческим предложениям.</p>
+<div class="checkbox-field"><input id="show-logo" type="checkbox" checked><label for="show-logo">Показывать логотип в КП</label></div>
+<p class="field-help">Реквизиты компании и логотип используются при сохранении сметы в PNG.</p>
+</section><section class="price-settings"><h3 id="price-status">Актуальность цен</h3><p id="price-time">Для проверки актуальности цен нужен интернет.</p><button id="check-prices" class="primary full">Проверить цены</button></section></dialog>
+<dialog id="dimension-picker" class="dimension-picker" aria-labelledby="dimension-picker-title" aria-describedby="dimension-picker-note">
+  <div class="dimension-picker-heading"><h2 id="dimension-picker-title">Размер окна, мм</h2><button id="dimension-picker-close" class="icon-button" type="button" aria-label="Закрыть список размеров"><svg aria-hidden="true"><use href="#icon-close"/></svg></button></div>
+  <p id="dimension-picker-note" class="field-help">Значения с шагом 50 мм. Любой другой размер можно ввести в поле.</p>
+  <div id="dimension-options" class="dimension-options" role="listbox" tabindex="0" aria-labelledby="dimension-picker-title"></div>
+</dialog>
+<div id="notice" role="status" hidden></div>
+<script src="js/calculator/prices.js"></script>
+<script src="js/calculator/price-data.js"></script>
+<script src="js/calculator/colors.js"></script>
+<script src="js/calculator/engine.js"></script>
+<script src="js/calculator/ui.js"></script>
+<script src="js/calculator/dimension-inputs.js"></script>
+<script src="js/calculator/brand-assets.js"></script>
+<script src="js/calculator/messenger-assets.js"></script>
+<script src="js/calculator/proposal-drawing.js"></script>
+<script src="js/calculator/vendor/html2canvas.min.js"></script>
+<script src="js/calculator/export-png.js"></script>
+<script src="js/calculator/browser-adapter.js"></script>
+<script src="js/calculator/app.js"></script>
+</body>
+</html>
+
+
+
