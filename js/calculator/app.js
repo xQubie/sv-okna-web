@@ -42,12 +42,19 @@ function normalizeProposal(source) {
     suffix:cleanText(previous.suffix, 24).trim()
   };
 }
-let order = stored?.draft?.items ? stored.draft : blank();
+const restoredDraft = Array.isArray(stored?.draft?.items);
+let order = restoredDraft ? stored.draft : blank();
 let archive = Array.isArray(stored?.archive) ? stored.archive : [];
 for (const source of [order,...archive]) {
   normalizeProposal(source);
   source.contact = formatPhone(source.contact, 120);
 }
+// A restored working order starts a new quote; archived documents keep identity.
+order.id = null;
+delete order.savedAt;
+order.proposal = newProposal();
+let preserveProposalDate = false;
+let pendingProposalExport = null;
 let editing = null;
 let page = "calc";
 let noticeTimer;
@@ -161,8 +168,21 @@ function proposalNumber(source = order, preview = false) {
 function renderProposalIdentity() {
   by("proposal-number-preview").textContent = proposalNumber(order, true);
 }
+function refreshDraftProposal() {
+  if (preserveProposalDate || order.proposal.date === localDate()) return false;
+  order.id = null;
+  delete order.savedAt;
+  order.proposal = newProposal();
+  by("proposal-suffix").value = "";
+  by("proposal-suffix").setCustomValidity("");
+  renderProposalIdentity(); enhanceFields(); persist();
+  return true;
+}
 by("proposal-suffix").addEventListener("input", () => {
-  order.proposal.suffix = cleanText(by("proposal-suffix").value, 24);
+  const suffix = cleanText(by("proposal-suffix").value, 24);
+  refreshDraftProposal();
+  order.proposal.suffix = suffix;
+  by("proposal-suffix").value = suffix;
   by("proposal-suffix").setCustomValidity("");
   renderProposalIdentity(); persist();
 });
@@ -172,6 +192,7 @@ by("proposal-suffix").addEventListener("change", () => {
   renderProposalIdentity(); enhanceFields(); persist();
 });
 function requireProposalNumber() {
+  refreshDraftProposal();
   if (order.proposal.suffix.trim()) return true;
   go("order");
   const control = by("proposal-suffix");
@@ -249,7 +270,15 @@ window.mobileReceive = message => {
     priceStatus();
     notice(message.text || "Не удалось проверить цены. Используем сохранённый прайс.");
   }
-  if (message.kind === "exportFinished" || message.kind === "notice" || message.kind === "exportDone") {
+  if (message.kind === "exportDone") {
+    if (!pendingProposalExport || message.requestId !== pendingProposalExport.requestId) return;
+    const completed = pendingProposalExport;
+    pendingProposalExport = null;
+    exportBusy = false;
+    if (message.success) finishProposalExport(completed);
+    else { renderTotals(); if (message.text) notice(message.text); }
+  }
+  if (message.kind === "exportFinished" || message.kind === "notice") {
     exportBusy = false;
     renderTotals();
     if (message.text) notice(message.text);
@@ -257,6 +286,7 @@ window.mobileReceive = message => {
 };
 
 function go(next) {
+  if (next === "order") refreshDraftProposal();
   page = next;
   document.querySelectorAll(".page").forEach(node => { node.hidden = node.id !== next; });
   document.querySelectorAll("[data-view]").forEach(node => {
@@ -283,6 +313,10 @@ window.mobileBack = () => {
 };
 
 const form = by("calc-form");
+const defaultWindowConfig = {
+  ...clone(window.svCalcOrder()), width:1000, height:1000, quant:1,
+  sashes:[{type:0,left:false}], fan:{type:0,height:0}, handleColor:"Бронза", mnt:0, dem:0
+};
 let dimensionFrame = 0;
 function dimensions() {
   if (dimensionFrame) return;
@@ -522,6 +556,7 @@ by("reprice").addEventListener("click", () => {
 
 by("save").addEventListener("click", () => {
   if (!order.items.length) return;
+  refreshDraftProposal();
   order.id ||= crypto.randomUUID();
   order.savedAt = new Date().toISOString();
   archive = [clone(order), ...archive.filter(item => item.id !== order.id)];
@@ -530,16 +565,17 @@ by("save").addEventListener("click", () => {
 function renderArchive() {
   by("archive").innerHTML = archive.map((item,index) => '<article class="archive-entry"><h3>'+esc(item.customer || "Заказ без имени")+'</h3><p>'+(item.proposal.suffix.trim() ? 'КП № '+esc(proposalNumber(item)) : 'Номер КП не задан')+'</p><p>'+esc(new Date(item.savedAt).toLocaleString("ru-RU"))+'</p><strong>'+money(amounts(item).total)+'</strong><div class="archive-actions"><button data-open="'+index+'">Открыть</button><button data-copy="'+index+'">Копировать</button></div></article>').join("") || '<div class="empty"><h3>Сохранённых заказов пока нет</h3><p>Сохраните смету во вкладке «Заказ», чтобы вернуться к ней позже.</p></div>';
 }
-function replaceOrder(next) {
+function replaceOrder(next, preserveDate = false) {
   const hasDraft = order.items.length || details.some(id => order[id]) || order.proposal.suffix;
   const isSaved = archive.some(item => item.id === order.id && JSON.stringify(item) === JSON.stringify(order));
   if (hasDraft && !isSaved && !window.confirm("Заменить текущий черновик? Для сохранения сначала нажмите «Сохранить заказ».")) return;
-  order = next; endEdit(); updateCount(); persist(); go("order");
+  order = next; preserveProposalDate = preserveDate;
+  endEdit(); updateCount(); persist(); go("order");
 }
 by("archive").addEventListener("click", event => {
   const button = event.target.closest("button");
   if (!button) return;
-  if (button.hasAttribute("data-open")) replaceOrder(clone(archive[+button.dataset.open]));
+  if (button.hasAttribute("data-open")) replaceOrder(clone(archive[+button.dataset.open]), true);
   if (button.hasAttribute("data-copy")) {
     const copy = clone(archive[+button.dataset.copy]);
     copy.id = null; delete copy.savedAt;
@@ -548,6 +584,36 @@ by("archive").addEventListener("click", event => {
   }
 });
 by("new-order").addEventListener("click", () => replaceOrder(blank()));
+
+function finishProposalExport(completed) {
+  const previousOrder = order, previousArchive = archive;
+  const previousMode = preserveProposalDate;
+  const unchanged = JSON.stringify(order) === completed.serialized;
+  const saved = completed.snapshot;
+  saved.id ||= crypto.randomUUID();
+  saved.savedAt = new Date().toISOString();
+  archive = [saved, ...archive.filter(item => item.id !== saved.id)];
+  if (unchanged) { order = blank(); preserveProposalDate = false; }
+  // Persist the completed quote and next draft together before clearing the UI.
+  if (!persist()) {
+    order = previousOrder; archive = previousArchive; preserveProposalDate = previousMode;
+    renderTotals(); return;
+  }
+  if (!unchanged) {
+    renderTotals();
+    notice("КП сохранено в истории. Новые изменения в расчёте оставлены.");
+    return;
+  }
+  endEdit(); needsFinishSelection = false;
+  const config = clone(defaultWindowConfig);
+  const finish = PriceData.current.prices.colors.findIndex(row => row[0] === "Без отделки") + 1;
+  config.colorIn = config.colorOut = finish || 1;
+  window.formatSetWindow(config);
+  renderOrder(); updateCount(); go("calc");
+  by("parameter-scroll").scrollTop = 0;
+  enhanceFields(); dimensions();
+  notice("КП сохранено в истории. Можно начать новый расчёт.");
+}
 
 function proposalHtml() {
   const a = amounts(order);
@@ -598,7 +664,9 @@ for (const format of ["png"]) by(format).addEventListener("click", () => {
   if (!native) { notice("Не удалось открыть сохранение PNG. Обновите страницу."); return; }
   if (new Blob([html]).size > 1000000) { notice("Смета слишком большая для экспорта. Разделите заказ на части."); return; }
   exportBusy = true; renderTotals();
-  send({kind:"export",format,html,title:"КП " + proposalNumber()});
+  const snapshot = clone(order), requestId = crypto.randomUUID();
+  pendingProposalExport = {snapshot,serialized:JSON.stringify(order),requestId};
+  send({kind:"export",format,html,title:"КП " + proposalNumber(),requestId});
 });
 
 syncTheme();
@@ -609,5 +677,9 @@ renderTotals();
 enhanceFields();
 new ResizeObserver(dimensions).observe(document.querySelector(".blueprint"));
 go("calc");
+if (restoredDraft) persist();
+for (const event of ["pageshow","focus"]) window.addEventListener(event, refreshDraftProposal);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) refreshDraftProposal(); });
+setInterval(refreshDraftProposal, 60000);
 send({kind:"ready"});
 

@@ -138,8 +138,9 @@
     if (message.kind === "ready") { telegram(); safeArea(); void checkPrices(); }
     if (message.kind === "export" && message.format === "png") {
       window.CalculatorPNG.save(message.html, message.title)
-        .then(() => receive({kind:"exportDone"}))
-        .catch(error => receive({kind:"exportDone", text:/[А-Яа-яЁё]/.test(error.message || "") ? error.message : "Не удалось сохранить PNG. Попробуйте ещё раз."}));
+        .then(() => receive({kind:"exportDone",success:true,requestId:message.requestId}))
+        .catch(error => receive({kind:"exportDone",success:false,requestId:message.requestId,
+          text:error.name === "AbortError" ? undefined : /[А-Яа-яЁё]/.test(error.message || "") ? error.message : "Не удалось сохранить PNG. Попробуйте ещё раз."}));
     }
   }
   for (const event of ["resize","orientationchange","pageshow"]) window.addEventListener(event, safeArea);

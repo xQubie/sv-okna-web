@@ -4,6 +4,7 @@
   let lastExport = null;
   let resultDialog;
   let pendingSave = null;
+  let preparationController = null;
 
   function isIOS() {
     return /iPad|iPhone|iPod/.test(navigator.userAgent) ||
@@ -33,6 +34,9 @@
     resultDialog.setAttribute("aria-labelledby", "png-result-title");
     resultDialog.innerHTML = '<div class="png-result-heading"><h2 id="png-result-title">Готовим PNG…</h2><button type="button" class="icon-button" aria-label="Закрыть предпросмотр">×</button></div><div class="png-result-preview" hidden><img alt="Предпросмотр коммерческого предложения"></div><p class="png-result-size" role="status" aria-live="polite"></p><p class="png-result-help field-help" hidden></p><div class="png-result-actions"><button id="png-share" class="outline" type="button" hidden>Поделиться</button><a id="png-open" class="outline" target="_blank" rel="noopener" hidden>Открыть изображение</a><a id="png-download" class="primary" hidden>Скачать PNG</a></div>';
     document.body.append(resultDialog);
+    resultDialog.addEventListener("close", () => {
+      if (!resultDialog.open && resultDialog.dataset.state === "loading") preparationController?.abort(new DOMException("Подготовка PNG отменена.", "AbortError"));
+    });
     resultDialog.querySelector(".icon-button").addEventListener("click", () => resultDialog.close());
     resultDialog.addEventListener("click", event => {
       if (event.target !== resultDialog) return;
@@ -64,6 +68,8 @@
   }
 
   async function prepare(html, title) {
+    const controller = new AbortController();
+    preparationController = controller;
     const oldUrl = lastExport?.url;
     lastExport = null;
     if (oldUrl) setTimeout(() => URL.revokeObjectURL(oldUrl), 60000);
@@ -79,7 +85,9 @@
     try {
       // Let the preparation feedback paint before rendering the document.
       await new Promise(resolve => setTimeout(resolve, 0));
-      const rendered = await render(html, {onProgress:text => { preview.querySelector(".png-result-size").textContent = text; }});
+      if (controller.signal.aborted || !preview.open) throw controller.signal.reason || new DOMException("Подготовка PNG отменена.", "AbortError");
+      const rendered = await render(html, {signal:controller.signal,onProgress:text => { preview.querySelector(".png-result-size").textContent = text; }});
+      if (controller.signal.aborted || !preview.open) throw controller.signal.reason || new DOMException("Подготовка PNG отменена.", "AbortError");
       lastExport = {...rendered, filename:filename(title), url:URL.createObjectURL(rendered.blob)};
       lastExport.file = shareableFile(lastExport);
       preview.querySelector("img").src = lastExport.url;
@@ -108,12 +116,13 @@
       preview.dataset.state = "ready";
       return lastExport;
     } catch (error) {
-      preview.dataset.state = "error";
+      preview.dataset.state = error.name === "AbortError" ? "cancelled" : "error";
       preview.querySelector("h2").textContent = "Не удалось создать PNG";
       preview.querySelector(".png-result-size").textContent = /[А-Яа-яЁё]/.test(error?.message || "")
         ? error.message : "Не удалось подготовить изображение. Закройте это окно и попробуйте ещё раз.";
       throw error;
     } finally {
+      if (preparationController === controller) preparationController = null;
       preview.removeAttribute("aria-busy");
     }
   }
