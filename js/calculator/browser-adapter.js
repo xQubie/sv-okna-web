@@ -2,6 +2,10 @@
   "use strict";
 
   let checking = null;
+  let checkSequence = 0;
+  let initialized = false;
+  let activation = document.hidden ? 1 : 0;
+  let resumedActivation = 0;
   let configuredTelegram = false;
   function receive(message) { window.mobileReceive?.(message); }
 
@@ -93,23 +97,46 @@
     if (event.type === "focusout") blurTimer = setTimeout(safeArea, 750);
   }
 
-  async function checkPrices() {
-    if (checking) return checking;
-    receive({kind:"checkingPrices"});
-    checking = (async () => {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 40000);
+  function cancelPriceCheck(requestId) {
+    if (!checking || (requestId !== undefined && checking.id !== requestId)) return;
+    const job = checking;
+    job.settled = true; checking = null;
+    clearTimeout(job.timer); job.controller.abort(); job.resolve();
+  }
+  function checkPrices(trigger = "retry") {
+    if (checking) return checking.promise;
+    const job = {id:++checkSequence,controller:new AbortController(),settled:false};
+    job.promise = new Promise(resolve => { job.resolve = resolve; });
+    checking = job;
+    const finish = message => {
+      if (job.settled || checking !== job) return;
+      job.settled = true; checking = null;
+      clearTimeout(job.timer);
+      receive({...message,requestId:job.id});
+      job.controller.abort(); job.resolve();
+    };
+    job.timer = setTimeout(() => finish({kind:"priceError",reason:"timeout",text:"Сервер обновлений не ответил за 12 секунд. Повторите попытку позже."}), 12000);
+    receive({kind:"checkingPrices",requestId:job.id,timeoutMs:12000,trigger});
+    void (async () => {
       try {
-        const response = await fetch("api/calculator-prices", {cache:"no-store", signal:controller.signal, headers:{Accept:"application/json"}});
-        const message = await response.json();
-        if (response.ok && message.kind === "prices") receive(message);
-        else if (message.kind === "formulaWarning") receive(message);
-        else throw Error(message.text || "Проверка цен пока недоступна. Используем сохранённый прайс.");
+        if (navigator.onLine === false) { finish({kind:"priceError",reason:"network",text:"Нет подключения к интернету. Проверьте соединение и повторите попытку."}); return; }
+        const response = await fetch("api/calculator-prices?check=" + Date.now() + "-" + job.id,
+          {cache:"no-store",signal:job.controller.signal,headers:{Accept:"application/json"}});
+        let message;
+        try { message = await response.json(); }
+        catch (_) { finish({kind:"priceError",reason:response.ok ? "schema" : "server"}); return; }
+        if (!response.ok) {
+          const known = ["network","timeout","server","schema","formula"].includes(message?.reason);
+          finish({kind:message?.kind === "formulaWarning" ? "formulaWarning" : "priceError",
+            reason:known ? message.reason : "server",text:typeof message?.text === "string" ? message.text : undefined});
+        } else if (message?.kind === "prices" && Number.isFinite(Date.parse(message.checkedAt))) {
+          finish({...message,fresh:true,provenance:"network"});
+        } else finish({kind:"priceError",reason:"schema"});
       } catch (error) {
-        receive({kind:"priceError", text:error.name === "AbortError" ? "Сайт не ответил. Используем сохранённый прайс." : "Не удалось проверить цены. Используем сохранённый прайс."});
-      } finally { clearTimeout(timer); checking = null; }
+        finish({kind:"priceError",reason:error.name === "AbortError" ? "timeout" : "network"});
+      }
     })();
-    return checking;
+    return job.promise;
   }
 
   function telegram() {
@@ -135,7 +162,11 @@
     let message;
     try { message = JSON.parse(value); } catch { return; }
     if (message.kind === "checkPrices") void checkPrices();
-    if (message.kind === "ready") { telegram(); safeArea(); void checkPrices(); }
+    if (message.kind === "ready") {
+      telegram(); safeArea(); initialized = true;
+      if (!document.hidden) void checkPrices("startup");
+      else window.PriceGate?.suspend();
+    }
     if (message.kind === "export" && message.format === "png") {
       window.CalculatorPNG.save(message.html, message.title)
         .then(() => receive({kind:"exportDone",success:true,requestId:message.requestId}))
@@ -148,5 +179,16 @@
   viewport?.addEventListener("scroll", safeArea);
   document.addEventListener("focusin", focusViewport);
   document.addEventListener("focusout", focusViewport);
-  window.CalculatorHost = Object.freeze({postMessage, checkPrices});
+  function suspended() {
+    activation++; cancelPriceCheck(); window.PriceGate?.suspend();
+  }
+  function resumed() {
+    if (!initialized || resumedActivation === activation) return;
+    resumedActivation = activation; void checkPrices("resume");
+  }
+  document.addEventListener("visibilitychange", () => document.hidden ? suspended() : resumed());
+  window.addEventListener("pagehide", suspended);
+  window.addEventListener("pageshow", event => { if (event.persisted) resumed(); });
+  document.getElementById("telegram-sdk")?.addEventListener("load", () => { telegram(); safeArea(); });
+  window.CalculatorHost = Object.freeze({postMessage,checkPrices,cancelPriceCheck});
 })();

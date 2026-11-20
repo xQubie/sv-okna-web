@@ -15,15 +15,19 @@ const TABLE_COLUMNS = { colors: 4, glassOut: 4, glassIn: 4, profile: 4, handles:
 let bundledPrices;
 
 class FormulaChangedError extends Error {}
+class PriceSchemaError extends Error {}
+class UpdateServerError extends Error {}
 
 function sha256(text) {
   return createHash('sha256').update(text, 'utf8').digest('hex');
 }
 
 function allowedUrl(value, base = ORIGIN) {
-  const url = new URL(value, base);
+  let url;
+  try { url = new URL(value, base); }
+  catch { throw new PriceSchemaError('Invalid calculator resource URL.'); }
   if (url.origin !== ORIGIN || url.username || url.password || !url.pathname.startsWith('/calc/')) {
-    throw new Error('Unexpected calculator resource URL.');
+    throw new PriceSchemaError('Unexpected calculator resource URL.');
   }
   url.hash = '';
   return url;
@@ -36,10 +40,10 @@ async function download(url, signal) {
     cache: 'no-store',
     headers: { 'User-Agent': 'SvOknaWebCalculator/1.0', 'Cache-Control': 'no-cache' }
   });
-  if (!response.ok || !response.body) throw new Error('Calculator resource unavailable.');
+  if (!response.ok || !response.body) throw new UpdateServerError('Calculator resource unavailable.');
   if (Number(response.headers.get('content-length')) > MAX_RESPONSE_BYTES) {
     await response.body.cancel();
-    throw new Error('Calculator resource exceeds size limit.');
+    throw new PriceSchemaError('Calculator resource exceeds size limit.');
   }
   const reader = response.body.getReader();
   const chunks = [];
@@ -51,7 +55,7 @@ async function download(url, signal) {
       bytes += part.value.byteLength;
       if (bytes > MAX_RESPONSE_BYTES) {
         await reader.cancel();
-        throw new Error('Calculator resource exceeds size limit.');
+        throw new PriceSchemaError('Calculator resource exceeds size limit.');
       }
       chunks.push(Buffer.from(part.value));
     }
@@ -69,13 +73,14 @@ function scriptUrl(html, moduleName, embedUrl) {
     if (url.pathname.endsWith('/' + moduleName + '.js')) return allowedUrl(url);
   }
   if (moduleName !== 'prices') throw new FormulaChangedError();
-  throw new Error('Price module missing from calculator.');
+  throw new PriceSchemaError('Price module missing from calculator.');
 }
 
 function parsePrices(script) {
   const match = /^\s*(?:\/\*[\s\S]*?\*\/\s*)*window\.SV_PRICES\s*=\s*(\{[\s\S]*\})\s*;?\s*$/.exec(script);
-  if (!match) throw new Error('Unsupported price data format.');
-  return JSON.parse(match[1]);
+  if (!match) throw new PriceSchemaError('Unsupported price data format.');
+  try { return JSON.parse(match[1]); }
+  catch { throw new PriceSchemaError('Invalid price data JSON.'); }
 }
 
 function text(value) {
@@ -107,23 +112,23 @@ function validRow(name, row) {
 function validatePrices(prices, baseline) {
   if (!prices || Array.isArray(prices) || typeof prices !== 'object'
       || !Number.isFinite(prices.coeff) || prices.coeff <= 0 || prices.coeff > 100) {
-    throw new Error('Invalid price coefficient.');
+    throw new PriceSchemaError('Invalid price coefficient.');
   }
   for (const [name, columns] of Object.entries(TABLE_COLUMNS)) {
     const rows = prices[name];
-    if (!Array.isArray(rows) || rows.length < 1 || rows.length > 2000) throw new Error('Incomplete price table.');
+    if (!Array.isArray(rows) || rows.length < 1 || rows.length > 2000) throw new PriceSchemaError('Incomplete price table.');
     const keys = new Set();
     for (const row of rows) {
       if (!Array.isArray(row) || row.length !== columns || !validRow(name, row) || keys.has(row[0])) {
-        throw new Error('Invalid price table row.');
+        throw new PriceSchemaError('Invalid price table row.');
       }
       keys.add(row[0]);
     }
     if (rows.length < baseline[name].length || baseline[name].some(row => !keys.has(row[0]))) {
-      throw new Error('Existing price identifiers changed.');
+      throw new PriceSchemaError('Existing price identifiers changed.');
     }
     if ((name === 'colors' || name === 'profile') && baseline[name].some((row, index) => rows[index][0] !== row[0])) {
-      throw new Error('Indexed price table reordered.');
+      throw new PriceSchemaError('Indexed price table reordered.');
     }
   }
 }
@@ -139,12 +144,12 @@ function baselinePrices() {
 }
 
 function respond(response, status, payload) {
-  const successful = status === 200;
   response.statusCode = status;
   response.setHeader('Content-Type', 'application/json; charset=utf-8');
   response.setHeader('X-Content-Type-Options', 'nosniff');
-  response.setHeader('Cache-Control', successful ? 'public, max-age=60, must-revalidate' : 'no-store');
-  response.setHeader('Vercel-CDN-Cache-Control', successful ? 'max-age=60' : 'no-store');
+  response.setHeader('Cache-Control', 'no-store');
+  response.setHeader('CDN-Cache-Control', 'no-store');
+  response.setHeader('Vercel-CDN-Cache-Control', 'no-store');
   response.end(JSON.stringify(payload));
 }
 
@@ -160,7 +165,7 @@ module.exports = async function calculatorPrices(request, response) {
     const baseline = baselinePrices();
     const widget = await download(allowedUrl('/calc/widget.js'), controller.signal);
     const base = /\bBASE\s*=\s*(['"])([^'"]+)\1/.exec(widget);
-    if (!base) throw new Error('Calculator embed URL missing.');
+    if (!base) throw new PriceSchemaError('Calculator embed URL missing.');
     const embedUrl = allowedUrl(base[2]);
     const embed = await download(embedUrl, controller.signal);
     const modules = ['engine', 'ui', 'prices'];
@@ -174,6 +179,7 @@ module.exports = async function calculatorPrices(request, response) {
     respond(response, 200, {
       kind: 'prices',
       prices,
+      formulas: FORMULA_HASHES,
       version: sha256(JSON.stringify(prices)),
       checkedAt: new Date().toISOString(),
       source: urls[2].origin + urls[2].pathname
@@ -182,12 +188,19 @@ module.exports = async function calculatorPrices(request, response) {
     if (error instanceof FormulaChangedError) {
       respond(response, 409, {
         kind: 'formulaWarning',
+        reason: 'formula',
         text: 'На сайте обновились формулы расчёта. Для актуальных цен требуется обновление калькулятора.'
+      });
+    } else if (error instanceof PriceSchemaError) {
+      respond(response, 409, {
+        kind:'priceError',reason:'schema',
+        text:'Данные сервера отличаются от поддерживаемого прайса. Для обновления цен может потребоваться новая версия приложения.'
       });
     } else {
       respond(response, 503, {
         kind: 'priceError',
-        text: 'Не удалось проверить цены. Используется сохранённый прайс.'
+        reason:controller.signal.aborted ? 'timeout' : 'server',
+        text:controller.signal.aborted ? 'Источник прайса не ответил вовремя. Повторите попытку позже.' : 'Сервер обновлений или источник прайса недоступен. Повторите попытку позже.'
       });
     }
   } finally {

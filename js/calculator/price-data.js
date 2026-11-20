@@ -5,6 +5,8 @@ window.PriceData = (() => {
   const storageKey = "svokna-web-calculator:prices:v1";
   const bundled = structuredClone(window.SV_PRICES);
   const bundledVersion = "4512186f0d817ed0cacb8013660b828c60b9989b237a2c5337ebedd55bc48c29";
+  const formulas = Object.freeze({engine:"a5cbc45157521b61482fa0b9e7a3c1a9e651972e65074872c881c52708762f11",ui:"ddbb7020cdc9c783a59ba4e5b1dd55fc1c8379572e18a35a8b24f28dfa989320"});
+  const compatible = value => value?.engine === formulas.engine && value?.ui === formulas.ui;
   const finitePrice = value => Number.isFinite(value) && value >= 0 && value <= 1e9;
   function validate(prices) {
     if (!prices || !Number.isFinite(prices.coeff) || prices.coeff <= 0 || prices.coeff > 100) return false;
@@ -28,6 +30,7 @@ window.PriceData = (() => {
       && prices.glassOut.every(row => row[3] === 4) && prices.glassIn.every(row => row[3] === 4);
   }
   let current = {prices:bundled, version:bundledVersion, checkedAt:null};
+  let cacheSaved = true;
   try {
     const cached = JSON.parse(localStorage.getItem(storageKey));
     if (cached && validate(cached.prices) && /^[a-f0-9]{64}$/i.test(cached.version)) current = cached;
@@ -38,9 +41,11 @@ window.PriceData = (() => {
     if (!validate(message.prices) || !/^[a-f0-9]{64}$/i.test(message.version)) throw Error("Формат прайса изменился. Сохранён последний проверенный прайс.");
     const changed = !same(current.prices, message.prices);
     const next = {prices:message.prices, version:changed ? message.version.toLowerCase() : current.version, checkedAt:message.checkedAt};
-    localStorage.setItem(storageKey, JSON.stringify(next));
     current = next;
+    cacheSaved = true;
+    try { localStorage.setItem(storageKey, JSON.stringify(next)); }
+    catch { cacheSaved = false; }
     return changed;
   }
-  return {validate, accept, same, bundled, get current() { return current; }};
+  return {validate,accept,same,bundled,formulas,compatible,get current() { return current; },get cacheSaved() { return cacheSaved; }};
 })();

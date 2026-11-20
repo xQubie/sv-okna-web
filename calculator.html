@@ -15,9 +15,9 @@
 <link rel="apple-touch-icon" href="img/apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="stylesheet" href="css/app.css?v=46">
-<link rel="stylesheet" href="css/calculator.css?v=2">
+<link rel="stylesheet" href="css/calculator.css?v=5">
 <script src="js/theme.js?v=45"></script>
-<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script id="telegram-sdk" src="https://telegram.org/js/telegram-web-app.js" async></script>
 </head>
 <body class="calculator-page">
 <div class="scene" aria-hidden="true"><div class="scene-photo"></div><div class="scene-tint"></div></div>
@@ -32,7 +32,8 @@
 <symbol id="icon-refresh" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-2.3-6M21 3v6h-6"/></symbol>
 <symbol id="icon-warehouse" viewBox="0 0 24 24"><path d="m3 9 9-6 9 6v12H3ZM7 21V11h10v10M7 14h10M7 17h10"/></symbol>
 </defs></svg>
-<div class="app-shell">
+<div class="app-shell" inert aria-busy="true">
+<div class="app-top">
 <header class="appbar calculator-header">
   <div class="brand"><p class="eyebrow">СВ ОКНА</p><h1 id="title" class="brand-title">Калькулятор</h1></div>
   <div class="actions">
@@ -41,6 +42,11 @@
     <button id="settings-toggle" class="icon-btn" type="button" aria-label="Настройки" title="Настройки"><svg aria-hidden="true"><use href="#icon-settings"/></svg></button>
   </div>
 </header>
+<section id="price-alert" class="price-alert" role="alert" hidden>
+  <div><strong><span class="price-alert-full">Цены не обновлены — стоимость может отличаться</span><span class="price-alert-compact">Цены не обновлены</span></strong><p id="price-alert-reason" class="price-alert-full"></p><p id="price-alert-brief" class="price-alert-compact"></p></div>
+  <button id="price-retry" type="button">Повторить</button>
+</section>
+</div>
 <main id="main-content">
 <section id="calc" class="page" aria-label="Калькулятор">
 <div id="svc" data-montage="1">
@@ -110,8 +116,13 @@
   <div id="dimension-options" class="dimension-options" role="listbox" tabindex="0" aria-labelledby="dimension-picker-title"></div>
 </dialog>
 <div id="notice" role="status" hidden></div>
+<div id="price-gate" class="price-gate" role="status" aria-live="polite"><div class="price-gate-card">
+  <svg class="price-gate-icon" aria-hidden="true"><use href="#icon-refresh"/></svg>
+  <h2>Проверяем актуальность цен</h2><p>Загружаем прайс перед началом расчёта. Это займёт не более 12 секунд.</p>
+  <p id="price-cache-note" class="field-help">При отсутствии связи будет доступен встроенный прайс.</p>
+</div></div>
 <script src="js/calculator/prices.js"></script>
-<script src="js/calculator/price-data.js"></script>
+<script src="js/calculator/price-data.js?v=5"></script>
 <script src="js/calculator/colors.js"></script>
 <script src="js/calculator/engine.js"></script>
 <script src="js/calculator/ui.js"></script>
@@ -122,8 +133,10 @@
 <script src="js/calculator/messenger-png-assets.js?v=3"></script>
 <script src="js/calculator/proposal-canvas.js?v=3"></script>
 <script src="js/calculator/export-png.js?v=4"></script>
-<script src="js/calculator/browser-adapter.js?v=4"></script>
-<script src="js/calculator/app.js?v=4"></script>
+<script src="js/calculator/price-gate.js?v=5"></script>
+<script src="js/calculator/browser-adapter.js?v=5"></script>
+<script src="js/calculator/app.js?v=5"></script>
+<script src="js/calculator/offline-shell.js?v=5"></script>
 </body>
 </html>
 

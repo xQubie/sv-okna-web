@@ -206,36 +206,51 @@ function requireProposalNumber() {
 function priceStatus() {
   const snapshot = PriceData.current;
   const checked = snapshot.checkedAt ? new Date(snapshot.checkedAt).toLocaleString("ru-RU", {day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}) : null;
-  const state = formulaWarning ? "обновите приложение" : priceBusy ? "проверяем…" : priceFailed ? "нет связи" : checked || "встроенный прайс";
+  const gate = window.PriceGate.state;
+  const state = priceBusy ? "проверяем…" : formulaWarning ? "обновите приложение" : priceFailed
+    ? gate.reason === "schema" ? "данные сервера отличаются" : "цены не обновлены" : checked || "встроенный прайс";
   by("price-status").textContent = "Актуальность цен";
   by("price-banner").textContent = "Актуальность цен · " + state;
-  by("price-time").textContent = formulaWarning
-    ? "На сайте изменился расчётный модуль. Используем последнюю совместимую версию до обновления приложения."
+  by("price-time").textContent = priceFailed
+    ? gate.text + (checked ? " Последняя успешная проверка: " + checked + ". Используем сохранённый прайс." : " Используем встроенный прайс.")
     : checked ? "Последняя успешная проверка " + checked + ". При отсутствии сети используется сохранённый прайс."
     : "Пока используем встроенные цены. Для проверки нужен интернет.";
   by("check-prices").disabled = priceBusy;
+  by("refresh-prices").disabled = priceBusy;
 }
 
 function checkPrices() {
   if (priceBusy) return;
-  priceBusy = true;
-  priceFailed = false;
-  priceStatus();
   if (!send({kind:"checkPrices"})) {
-    priceBusy = false;
-    priceFailed = true;
-    priceStatus();
-    notice("Не удалось проверить цены. Попробуйте ещё раз.");
+    const requestId = "local-" + Date.now();
+    window.PriceGate.begin({requestId});
+    window.PriceGate.fail({requestId,reason:"server",text:"Модуль обновления не загрузился. Перезапустите приложение."});
   }
 }
 by("check-prices").addEventListener("click", checkPrices);
 by("refresh-prices").addEventListener("click", checkPrices);
 by("price-banner").addEventListener("click", openSettings);
+by("price-retry").addEventListener("click", checkPrices);
+function syncPriceGate() {
+  const state = window.PriceGate.state;
+  priceBusy = state.phase === "checking";
+  priceFailed = state.phase === "fallback";
+  formulaWarning = priceFailed && state.reason === "formula";
+  priceStatus();
+}
+window.addEventListener("pricegatechange", syncPriceGate);
+syncPriceGate();
 
 window.mobileReceive = message => {
-  if (message.kind === "checkingPrices") { priceBusy = true; priceStatus(); }
+  if (message.kind === "checkingPrices") window.PriceGate.begin(message);
   if (message.kind === "theme") { system = message; syncTheme(); }
   if (message.kind === "prices") {
+    if (!window.PriceGate.accepts(message) || message.fresh !== true || message.provenance !== "network") return;
+    if (!PriceData.compatible(message.formulas)) {
+      window.PriceGate.fail({requestId:message.requestId,reason:message.formulas ? "formula" : "schema",
+        text:"Версия расчёта в приложении отличается от данных сервера. Требуется обновление приложения."});
+      return;
+    }
     try {
       const previous = PriceData.current.prices;
       const config = window.svCalcOrder();
@@ -251,24 +266,15 @@ window.mobileReceive = message => {
         window.formatUpdatePrices(message.prices, config);
         notice(needsFinishSelection ? "Выбранная отделка исчезла из прайса. Выберите отделку внутри и снаружи заново." : "Прайс обновлён. Цены изделий в заказе можно пересчитать отдельно.");
       }
-      priceBusy = false;
-      priceFailed = false;
-      formulaWarning = false;
-      priceStatus();
+      window.PriceGate.succeed(message);
       refreshOrderPriceNote();
+      if (!PriceData.cacheSaved) notice("Цены обновлены. Не удалось сохранить прайс для работы без интернета.");
     } catch (error) {
-      priceBusy = false;
-      priceFailed = true;
-      priceStatus();
-      notice(error.message);
+      window.PriceGate.fail({requestId:message.requestId,reason:"schema",text:"Данные сервера отличаются от поддерживаемого прайса. Требуется обновление приложения."});
     }
   }
   if (message.kind === "priceError" || message.kind === "formulaWarning") {
-    priceBusy = false;
-    priceFailed = true;
-    formulaWarning = message.kind === "formulaWarning";
-    priceStatus();
-    notice(message.text || "Не удалось проверить цены. Используем сохранённый прайс.");
+    window.PriceGate.fail({...message,reason:message.kind === "formulaWarning" ? "formula" : message.reason});
   }
   if (message.kind === "exportDone") {
     if (!pendingProposalExport || message.requestId !== pendingProposalExport.requestId) return;
