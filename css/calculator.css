@@ -1722,7 +1722,7 @@ dialog::backdrop {
 .price-gate-card h2 { margin:0; font-size:24px; line-height:1.2; }
 .price-gate-card p { font-size:15px; line-height:1.5; }
 .price-gate-card .field-help { font-size:12px; margin-top:22px; }
-.price-gate-icon { width:36px; height:36px; color:var(--accent); animation:spin 1.2s linear infinite; }
+.price-gate-icon { display:block; margin:0 auto 18px; width:36px; height:36px; color:var(--accent); animation:spin 1.2s linear infinite; }
 @media(max-width:599px) {
   :root[data-price-state=fallback] { --visual-height:clamp(150px,26vh,215px); }
   .price-alert { gap:8px; padding:10px 11px; }

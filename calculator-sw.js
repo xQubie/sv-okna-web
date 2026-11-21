@@ -2,14 +2,14 @@
 
 // Bump BUILD and offline-shell.js's worker URL whenever this snapshot changes.
 // Only the calculator's public shell is stored. Price and warehouse data never are.
-const BUILD = "v6-5df664fdde61";
+const BUILD = "v7-2069abd0bb07";
 const BASE = new URL("./", self.location.href);
 const CACHE_PREFIX = "svokna-calculator-public-shell:" + encodeURIComponent(BASE.pathname) + ":";
 const CACHE_NAME = CACHE_PREFIX + BUILD;
 const SHELL_URL = new URL("calculator.html", BASE).href;
 const CALCULATOR_URL = new URL("calculator", BASE).href;
 const ASSETS = [
-  "css/app.css?v=46", "css/calculator.css?v=6", "js/theme.js?v=45",
+  "css/app.css?v=46", "css/calculator.css?v=7", "js/theme.js?v=45",
   "js/calculator/prices.js", "js/calculator/price-data.js?v=5",
   "js/calculator/colors.js", "js/calculator/engine.js", "js/calculator/ui.js",
   "js/calculator/dimension-inputs.js", "js/calculator/brand-assets.js",
@@ -17,7 +17,7 @@ const ASSETS = [
   "js/calculator/messenger-png-assets.js?v=3", "js/calculator/proposal-canvas.js?v=6",
   "js/calculator/export-png.js?v=4", "js/calculator/price-gate.js?v=6",
   "js/calculator/browser-adapter.js?v=5", "js/calculator/app.js?v=6",
-  "js/calculator/offline-shell.js?v=6", "img/bg_windows.jpg", "img/favicon.png",
+  "js/calculator/offline-shell.js?v=7", "img/bg_windows.jpg", "img/favicon.png",
   "img/apple-touch-icon.png", "img/icon-192.png", "img/icon-512.png", "manifest.webmanifest"
 ].map(path => new URL(path, BASE).href);
 const PUBLIC_URLS = new Set(ASSETS);
