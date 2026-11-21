@@ -1719,7 +1719,7 @@ dialog::backdrop {
 .price-gate { position:fixed; inset:0; z-index:1000; display:grid; place-items:center; padding:24px;
   background:var(--content); -webkit-backdrop-filter:blur(28px); backdrop-filter:blur(28px); }
 .price-gate-card { width:100%; max-width:390px; text-align:center; }
-.price-gate-card h2 { margin:18px 0 10px; font-size:24px; line-height:1.2; }
+.price-gate-card h2 { margin:0; font-size:24px; line-height:1.2; }
 .price-gate-card p { font-size:15px; line-height:1.5; }
 .price-gate-card .field-help { font-size:12px; margin-top:22px; }
 .price-gate-icon { width:36px; height:36px; color:var(--accent); animation:spin 1.2s linear infinite; }

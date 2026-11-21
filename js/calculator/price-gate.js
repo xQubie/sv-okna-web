@@ -4,7 +4,6 @@
   const overlay = document.getElementById("price-gate");
   const alert = document.getElementById("price-alert");
   const reason = document.getElementById("price-alert-reason");
-  const cache = document.getElementById("price-cache-note");
   const brief = document.getElementById("price-alert-brief");
   const retry = document.getElementById("price-retry");
   const reasons = {
@@ -29,10 +28,6 @@
     brief.textContent = briefReasons[state.reason] || "";
     retry.disabled = blocked;
     retry.textContent = blocked ? "Проверяем…" : "Повторить";
-    const checked = window.PriceData?.current?.checkedAt;
-    cache.textContent = checked
-      ? "Последняя успешная проверка: " + new Date(checked).toLocaleString("ru-RU")
-      : "При отсутствии связи будет доступен встроенный прайс.";
     window.dispatchEvent(new CustomEvent("pricegatechange", {detail:{...state}}));
   }
   function accepts(message) {
@@ -48,6 +43,7 @@
   }
   function begin(message) {
     clearTimeout(timer);
+    for (const dialog of document.querySelectorAll("#settings[open],#dimension-picker[open]")) dialog.close();
     if (app.contains(document.activeElement)) document.activeElement.blur();
     state = {...state,phase:"checking",requestId:message.requestId};
     render();

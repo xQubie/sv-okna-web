@@ -15,7 +15,7 @@
 <link rel="apple-touch-icon" href="img/apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="stylesheet" href="css/app.css?v=46">
-<link rel="stylesheet" href="css/calculator.css?v=5">
+<link rel="stylesheet" href="css/calculator.css?v=6">
 <script src="js/theme.js?v=45"></script>
 <script id="telegram-sdk" src="https://telegram.org/js/telegram-web-app.js" async></script>
 </head>
@@ -92,7 +92,7 @@
 </section>
 <div class="section-heading"><h2>Изделия</h2><button data-go="calc" class="text-button">Добавить окно</button></div><div id="items" class="items-list"></div>
 <p id="order-price-note" class="status-note" hidden></p><button id="reprice" class="outline full" hidden>Пересчитать по актуальным ценам</button>
-<details class="configuration customer-details"><summary>Заказчик и доставка<span class="chevron" aria-hidden="true"></span></summary><div class="details-content"><label>Имя или компания<input id="customer" type="text" autocomplete="name" maxlength="120"></label><label>Телефон<input id="contact" type="tel" autocomplete="tel" maxlength="120" placeholder="+7 (495) 798-48-28"></label><label>Адрес доставки<input id="address" type="text" autocomplete="street-address" maxlength="200"></label><label>Комментарий<textarea id="notes" rows="3" maxlength="1000"></textarea></label></div></details>
+<details class="configuration customer-details"><summary>Заказчик и доставка<span class="chevron" aria-hidden="true"></span></summary><div class="details-content"><label>Имя или компания<input id="customer" type="text" autocomplete="name" maxlength="120"></label><label>Телефон<input id="contact" type="tel" autocomplete="tel" maxlength="120" placeholder="+7 (___) ___-__-__"></label><label>Адрес доставки<input id="address" type="text" autocomplete="street-address" maxlength="200"></label><label>Комментарий<textarea id="notes" rows="3" maxlength="1000"></textarea></label></div></details>
 <section class="estimate"><h2>Смета</h2><div class="svc__row cost-fields"><label>Доставка, ₽<input id="delivery" type="number" inputmode="numeric" min="0" max="99999999" value="0"></label><div class="discount-combo"><label>Скидка на окна, %<input id="discount" type="number" inputmode="decimal" min="-9999.9" max="100" step="0.1" value="0" aria-describedby="discount-help"></label><button id="discount-sign" type="button" class="discount-sign" aria-label="Сменить знак скидки">±</button></div></div><p id="discount-help" class="field-help discount-help">Минус — наценка. Кнопка ± меняет знак.</p><div id="summary"></div><div class="grand"><span>Итого</span><strong id="grand">0 ₽</strong></div><button id="save" class="primary full">Сохранить заказ</button><div class="export-actions"><button id="png" class="outline full"><svg><use href="#icon-image"/></svg>Сохранить PNG</button></div></section>
 </section>
 <section id="history" class="page" hidden aria-label="История"><div class="section-heading"><h2>Сохранённые заказы</h2><button id="new-order" class="text-button">Новый</button></div><div id="archive"></div></section>
@@ -101,10 +101,10 @@
 </div>
 <dialog id="settings" aria-labelledby="settings-title"><div class="dialog-heading"><h2 id="settings-title">Настройки</h2><button id="settings-close" class="icon-button" aria-label="Закрыть настройки"><svg><use href="#icon-close"/></svg></button></div><select id="theme" hidden aria-hidden="true" tabindex="-1"><option value="system">Как в системе</option></select><section class="business-settings" aria-labelledby="business-settings-title">
 <h3 id="business-settings-title">Компания и документы</h3>
-<label>Название компании<input id="company-name" type="text" maxlength="120" autocomplete="organization"></label>
-<label>Адрес компании<textarea id="company-address" rows="2" maxlength="240" autocomplete="street-address"></textarea></label>
-<label>Телефон компании<input id="company-phone" type="tel" maxlength="80" autocomplete="tel" placeholder="+7 (495) 798-48-28"></label>
-<label>Телефон мессенджеров<input id="messenger-phone" type="tel" maxlength="80" autocomplete="tel" placeholder="+7 (495) 798-48-28" aria-describedby="messenger-phone-hint"></label>
+<label>Название компании<input id="company-name" type="text" maxlength="120" autocomplete="off"></label>
+<label>Адрес компании<textarea id="company-address" rows="2" maxlength="240" autocomplete="off"></textarea></label>
+<label>Телефон компании<input id="company-phone" type="tel" maxlength="80" autocomplete="off"></label>
+<label>Телефон мессенджеров<input id="messenger-phone" type="tel" maxlength="80" autocomplete="off" aria-describedby="messenger-phone-hint"></label>
 <p id="messenger-phone-hint" class="field-help messenger-help">Отдельный номер для WhatsApp, Telegram и MAX. Он появится в шапке КП.</p>
 <label>Префикс номера КП<input id="proposal-prefix" type="text" maxlength="12" value="ВВ" autocomplete="off" aria-describedby="proposal-prefix-hint"></label><p id="proposal-prefix-hint" class="field-help">Префикс применяется к новым коммерческим предложениям.</p>
 <div class="checkbox-field"><input id="show-logo" type="checkbox" checked><label for="show-logo">Показывать логотип в КП</label></div>
@@ -117,9 +117,7 @@
 </dialog>
 <div id="notice" role="status" hidden></div>
 <div id="price-gate" class="price-gate" role="status" aria-live="polite"><div class="price-gate-card">
-  <svg class="price-gate-icon" aria-hidden="true"><use href="#icon-refresh"/></svg>
-  <h2>Проверяем актуальность цен</h2><p>Загружаем прайс перед началом расчёта. Это займёт не более 12 секунд.</p>
-  <p id="price-cache-note" class="field-help">При отсутствии связи будет доступен встроенный прайс.</p>
+  <h2>Проверяем актуальность цен</h2>
 </div></div>
 <script src="js/calculator/prices.js"></script>
 <script src="js/calculator/price-data.js?v=5"></script>
@@ -131,12 +129,12 @@
 <script src="js/calculator/messenger-assets.js"></script>
 <script src="js/calculator/proposal-drawing.js"></script>
 <script src="js/calculator/messenger-png-assets.js?v=3"></script>
-<script src="js/calculator/proposal-canvas.js?v=3"></script>
+<script src="js/calculator/proposal-canvas.js?v=6"></script>
 <script src="js/calculator/export-png.js?v=4"></script>
-<script src="js/calculator/price-gate.js?v=5"></script>
+<script src="js/calculator/price-gate.js?v=6"></script>
 <script src="js/calculator/browser-adapter.js?v=5"></script>
-<script src="js/calculator/app.js?v=5"></script>
-<script src="js/calculator/offline-shell.js?v=5"></script>
+<script src="js/calculator/app.js?v=6"></script>
+<script src="js/calculator/offline-shell.js?v=6"></script>
 </body>
 </html>
 

@@ -6,7 +6,7 @@
   const base = new URL("../../", source);
   function register() {
     // Initial online installation is optional; it never delays price checking.
-    navigator.serviceWorker.register(new URL("calculator-sw.js?v=v5-5a0979efed97", base).href,
+    navigator.serviceWorker.register(new URL("calculator-sw.js?v=v6-5df664fdde61", base).href,
       {scope:base.pathname, updateViaCache:"none"}).catch(() => {});
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", register, {once:true});

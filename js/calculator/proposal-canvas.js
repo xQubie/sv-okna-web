@@ -196,9 +196,7 @@
         fitted(quantity, 770, y, quantityWidth || 1, 13, true);
         y += Math.max(headingHeight, 18.9) + 10;
         const description = group(() => {
-          let top = 3;
-          top += text(content(product.querySelector(".finish-spec")), 0, top, 520, 12, false, ink, "left", 16.8) + 3;
-          line(0, top, 520, "#e1e6e9"); top++;
+          let top = 0;
           for (const row of product.querySelectorAll(".specifications>div")) {
             top += 3;
             const labelHeight = text(content(row.querySelector("dt")), 0, top, 120, 12, false, muted, "left", 16.8);
@@ -209,7 +207,7 @@
           top += 10;
           const unit = product.querySelector(".item-price-unit");
           if (unit) top += text(content(unit), 0, top, 520, 12, false, muted, "right", 16.8) + 4;
-          top += fitted(content(product.querySelector(".item-price>strong")), 520, top, 520, 18, true);
+          top += fitted(content(product.querySelector(".item-price>strong")), 520, top, 520, 17, true);
           return top;
         });
         const bodyHeight = Math.max(219, description.height);
